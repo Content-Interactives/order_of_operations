@@ -17,6 +17,7 @@ const OrderOfOperations = () => {
 	const [displayedExpression, setDisplayedExpression] = useState('');
 	const [isBigShrinking, setIsBigShrinking] = useState(false);
 	const [bigAnimKey, setBigAnimKey] = useState(0); // To force re-mount for grow-in
+	const [isPlaceholderGrowing, setIsPlaceholderGrowing] = useState(false);
 
 	const generateRandomNumber = (min, max) => {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -109,11 +110,55 @@ const OrderOfOperations = () => {
 		return { isValid: true };
 	};
 
+	const formatExpression = (expr) => {
+		// First replace * and / with × and ÷
+		let formatted = expr.replace(/\*/g, '×').replace(/\//g, '÷');
+		
+		// Convert exponents to superscript
+		formatted = formatted.replace(/(\d+)\^(\d+)/g, (match, base, exponent) => {
+			// Convert each digit of the exponent to superscript
+			const superscriptExponent = exponent.split('').map(digit => {
+				const superscriptMap = {
+					'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+					'5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'
+				};
+				return superscriptMap[digit] || digit;
+			}).join('');
+			return `${base}${superscriptExponent}`;
+		});
+		
+		// Add spaces around operators, but not around parentheses or superscripts
+		formatted = formatted
+			.replace(/(\d+)([+\-×÷])/g, '$1 $2') // Space after number before operator
+			.replace(/([+\-×÷])(\d+)/g, '$1 $2') // Space after operator before number
+			.replace(/\s*\(\s*/g, '(') // Remove spaces around opening parenthesis
+			.replace(/\s*\)\s*/g, ')') // Remove spaces around closing parenthesis
+			.replace(/\s+/g, ' ') // Replace multiple spaces with single space
+			.trim(); // Remove leading/trailing spaces
+		
+		return formatted;
+	};
+
 	const handleSimplify = () => {
 		const validation = validateExpression(expression);
 		if (!validation.isValid) {
-			setIsError(true);
-			setTimeout(() => setIsError(false), 1000); // Reset after 1 second
+			if (!showPlaceholder) {
+				// If showing an expression, animate it out first
+				setIsBigShrinking(true);
+				setTimeout(() => {
+					setShowPlaceholder(true);
+					setIsBigShrinking(false);
+					setIsPlaceholderGrowing(true);
+					setIsError(true);
+					setTimeout(() => {
+						setIsError(false);
+						setIsPlaceholderGrowing(false);
+					}, 1000);
+				}, 400);
+			} else {
+				setIsError(true);
+				setTimeout(() => setIsError(false), 1000);
+			}
 			return;
 		}
 
@@ -190,7 +235,7 @@ const OrderOfOperations = () => {
 					<div className="mt-4 space-y-4">
 						<div className={`w-full min-h-[200px] p-2 bg-white border border-[#5750E3]/30 rounded-md flex justify-center ${showPlaceholder ? 'items-center' : 'items-start'}`}> 
 							{showPlaceholder ? (
-								<p className={`text-gray-500 text-center select-none max-w-[280px] transition-all duration-500 ${isShrinking ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}>
+								<p className={`text-gray-500 text-center select-none max-w-[280px] transition-all duration-500 ${isShrinking ? 'scale-0 opacity-0' : isPlaceholderGrowing ? 'grow-in' : 'scale-100 opacity-100'}`}>
 									Enter a <span className={`transition-all duration-300 ${isError ? 'font-bold text-yellow-500' : ''}`}>valid expression</span> to simplify it using the order of operations!
 								</p>
 							) : (
@@ -198,7 +243,7 @@ const OrderOfOperations = () => {
 									key={bigAnimKey}
 									className={`text-2xl font-bold text-[#5750E3] select-none mt-2 ${isBigShrinking ? 'shrink-out' : 'grow-in'}`}
 								>
-									{displayedExpression.replace(/\*/g, '×').replace(/\//g, '÷')}
+									{formatExpression(displayedExpression)}
 								</p>
 							)}
 						</div>
