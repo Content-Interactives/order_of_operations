@@ -18,6 +18,11 @@ const OrderOfOperations = () => {
 	const [isBigShrinking, setIsBigShrinking] = useState(false);
 	const [bigAnimKey, setBigAnimKey] = useState(0); // To force re-mount for grow-in
 	const [isPlaceholderGrowing, setIsPlaceholderGrowing] = useState(false);
+	const [totalSteps, setTotalSteps] = useState(0);
+	const [isProgressShrinking, setIsProgressShrinking] = useState(false);
+	const [isProgressGrowing, setIsProgressGrowing] = useState(false);
+	const [showProgress, setShowProgress] = useState(false);
+	const [hoveredOp, setHoveredOp] = useState(null);
 
 	const generateRandomNumber = (min, max) => {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -47,7 +52,12 @@ const OrderOfOperations = () => {
 			() => `(${generateRandomNumber(1, 9)} + ${generateRandomNumber(1, 9)}) / ${generateRandomNumber(1, 9)} * ${generateRandomNumber(1, 9)}`,
 			() => `${generateRandomNumber(1, 5)}^2 * ${generateRandomNumber(1, 9)} - ${generateRandomNumber(1, 9)}`,
 			() => `(${generateRandomNumber(1, 9)} * ${generateRandomNumber(1, 9)}) + (${generateRandomNumber(1, 9)} / ${generateRandomNumber(1, 9)})`,
-			() => `${generateRandomNumber(1, 9)} * (${generateRandomNumber(1, 9)} + ${generateRandomNumber(1, 9)})^2`
+			() => `${generateRandomNumber(1, 9)} * (${generateRandomNumber(1, 9)} + ${generateRandomNumber(1, 9)})^2`,
+			
+			// New expressions with exponents on parentheses
+			() => `(${generateRandomNumber(1, 9)} + ${generateRandomNumber(1, 9)})^2`,
+			() => `(${generateRandomNumber(1, 9)} * ${generateRandomNumber(1, 9)})^2 + ${generateRandomNumber(1, 9)}`,
+			() => `${generateRandomNumber(1, 9)} + (${generateRandomNumber(1, 9)} - ${generateRandomNumber(1, 9)})^2`
 		];
 
 		// Randomly select one of the expression generators
@@ -61,10 +71,10 @@ const OrderOfOperations = () => {
 
 	const handleExpressionChange = (e) => {
 		const value = e.target.value;
-		// Replace multiplication symbols with *
+		// Replace multiplication symbols with * and preserve spaces
 		const normalizedValue = value
 			.replace(/[×x]/g, '*')
-			.replace(/[^0-9+\-*/()^]/g, ''); // Only allow numbers and specified operators
+			.replace(/[^0-9+\-*/()^ ]/g, ''); // Allow numbers, operators, parentheses, and spaces
 		setExpression(normalizedValue);
 	};
 
@@ -114,8 +124,8 @@ const OrderOfOperations = () => {
 		// First replace * and / with × and ÷
 		let formatted = expr.replace(/\*/g, '×').replace(/\//g, '÷');
 		
-		// Convert exponents to superscript
-		formatted = formatted.replace(/(\d+)\^(\d+)/g, (match, base, exponent) => {
+		// Convert exponents to superscript, including those on parenthesized expressions
+		formatted = formatted.replace(/(\([^)]+\)|\d+)\^(\d+)/g, (match, base, exponent) => {
 			// Convert each digit of the exponent to superscript
 			const superscriptExponent = exponent.split('').map(digit => {
 				const superscriptMap = {
@@ -139,15 +149,40 @@ const OrderOfOperations = () => {
 		return formatted;
 	};
 
+	const calculateTotalSteps = (expr) => {
+		if (!expr) return 0;
+		
+		let steps = 0;
+		// Count parentheses pairs
+		const parenthesesPairs = (expr.match(/\(/g) || []).length;
+		steps += parenthesesPairs;
+		
+		// Count exponents
+		const exponents = (expr.match(/\^/g) || []).length;
+		steps += exponents;
+		
+		// Count multiplication and division
+		const multDiv = (expr.match(/[\*\/]/g) || []).length;
+		steps += multDiv;
+		
+		// Count addition and subtraction
+		const addSub = (expr.match(/[\+\-]/g) || []).length;
+		steps += addSub;
+		
+		return steps;
+	};
+
 	const handleSimplify = () => {
 		const validation = validateExpression(expression);
 		if (!validation.isValid) {
 			if (!showPlaceholder) {
-				// If showing an expression, animate it out first
 				setIsBigShrinking(true);
+				setIsProgressShrinking(true);
 				setTimeout(() => {
 					setShowPlaceholder(true);
 					setIsBigShrinking(false);
+					setIsProgressShrinking(false);
+					setShowProgress(false);
 					setIsPlaceholderGrowing(true);
 					setIsError(true);
 					setTimeout(() => {
@@ -162,14 +197,28 @@ const OrderOfOperations = () => {
 			return;
 		}
 
+		// Start the animation sequence
+		setIsProgressShrinking(true);
+		setTimeout(() => {
+			// After shrinking, update the steps
+			setTotalSteps(calculateTotalSteps(expression));
+			setCurrentStep(1);
+			setIsProgressShrinking(false);
+			setIsProgressGrowing(true);
+			
+			// After a brief delay, start growing
+			setTimeout(() => {
+				setIsProgressGrowing(false);
+			}, 400);
+		}, 400);
+
 		if (!showPlaceholder) {
-			// If already showing a big expression, animate it out first
 			setIsBigShrinking(true);
 			setTimeout(() => {
 				setDisplayedExpression(expression);
 				setIsBigShrinking(false);
-				setBigAnimKey(prev => prev + 1); // Force re-mount for grow-in
-			}, 400); // Match shrink-out duration
+				setBigAnimKey(prev => prev + 1);
+			}, 400);
 			return;
 		}
 
@@ -179,10 +228,146 @@ const OrderOfOperations = () => {
 			setIsShrinking(false);
 			setDisplayedExpression(expression);
 			setBigAnimKey(prev => prev + 1);
-		}, 500); // Match this with the animation duration
-		// TODO: Process the valid expression
-		console.log("Expression is valid:", expression);
+		}, 500);
 	};
+
+	// Helper to highlight leftmost parenthesis contents
+	function highlightLeftmostParenthesis(expr, colorClass) {
+		let start = expr.indexOf('(');
+		if (start === -1) return expr;
+		let depth = 0;
+		for (let i = start; i < expr.length; i++) {
+			if (expr[i] === '(') depth++;
+			if (expr[i] === ')') depth--;
+			if (depth === 0) {
+				// Found matching closing parenthesis
+				const before = expr.slice(0, start);
+				const openParen = expr[start];
+				const inside = expr.slice(start + 1, i);
+				const closeParen = expr[i];
+				const after = expr.slice(i + 1);
+				return <>{before}<span className={colorClass}>{openParen}{inside}{closeParen}</span>{after}</>;
+			}
+		}
+		return expr;
+	}
+
+	// Helper to highlight leftmost exponent (base and exponent)
+	function highlightLeftmostExponent(expr, colorClass) {
+		// Match (base)^{exponent} or base^{exponent} (with superscript)
+		// The formatted expression uses unicode superscripts, so match those
+		const superscriptPattern = /([\d\)]+)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/;
+		const match = expr.match(superscriptPattern);
+		if (!match) return expr;
+		let before = expr.slice(0, match.index);
+		let base = match[1];
+		const exp = match[2];
+		let highlightStart = match.index;
+		let highlightEnd = match.index + match[0].length;
+
+		// If base ends with ')', find matching '(' and highlight from there
+		if (base.endsWith(')')) {
+			let depth = 1;
+			let i = match.index + base.length - 2;
+			while (i >= 0 && depth > 0) {
+				if (expr[i] === ')') depth++;
+				if (expr[i] === '(') depth--;
+				i--;
+			}
+			highlightStart = i + 1; // index of matching '('
+			before = expr.slice(0, highlightStart);
+		}
+		const highlight = expr.slice(highlightStart, highlightEnd);
+		const after = expr.slice(highlightEnd);
+		return <>{before}<span className={colorClass}>{highlight}</span>{after}</>;
+	}
+
+	// Helper to highlight leftmost multiplication/division and its operands
+	function highlightLeftmostMulDiv(expr, colorClass) {
+		// Find the leftmost × or ÷
+		const opMatch = expr.match(/[×÷]/);
+		if (!opMatch) return expr;
+		const opIdx = opMatch.index;
+		// Find left operand
+		let leftStart = opIdx - 1;
+		// If it's a parenthesis group
+		if (expr[leftStart] === ')') {
+			let depth = 1;
+			leftStart--;
+			while (leftStart >= 0 && depth > 0) {
+				if (expr[leftStart] === ')') depth++;
+				if (expr[leftStart] === '(') depth--;
+				leftStart--;
+			}
+			leftStart++;
+		} else {
+			// Otherwise, scan left for digits/decimals, but always include at least one digit
+			while (leftStart - 1 >= 0 && /[\d.]/.test(expr[leftStart - 1])) leftStart--;
+		}
+		// Find right operand
+		let rightStart = opIdx + 1;
+		// Skip spaces after operator
+		while (rightStart < expr.length && expr[rightStart] === ' ') rightStart++;
+		let rightEnd = rightStart;
+		if (expr[rightStart] === '(') {
+			// Parenthesis group
+			let depth = 1;
+			rightEnd++;
+			while (rightEnd < expr.length && depth > 0) {
+				if (expr[rightEnd] === '(') depth++;
+				if (expr[rightEnd] === ')') depth--;
+				rightEnd++;
+			}
+		} else {
+			// Number (single or multi-digit)
+			while (rightEnd < expr.length && /[\d.]/.test(expr[rightEnd])) rightEnd++;
+		}
+		const before = expr.slice(0, leftStart);
+		const highlight = expr.slice(leftStart, rightEnd);
+		const after = expr.slice(rightEnd);
+		return <>{before}<span className={colorClass}>{highlight}</span>{after}</>;
+	}
+
+	// Helper to highlight leftmost addition/subtraction and its operands
+	function highlightLeftmostAddSub(expr, colorClass) {
+		// Find the leftmost + or −
+		const opMatch = expr.match(/[+−]/);
+		if (!opMatch) return expr;
+		const opIdx = opMatch.index;
+		// Find left operand
+		let leftStart = opIdx - 1;
+		if (expr[leftStart] === ')') {
+			let depth = 1;
+			leftStart--;
+			while (leftStart >= 0 && depth > 0) {
+				if (expr[leftStart] === ')') depth++;
+				if (expr[leftStart] === '(') depth--;
+				leftStart--;
+			}
+			leftStart++;
+		} else {
+			while (leftStart - 1 >= 0 && /[\d.]/.test(expr[leftStart - 1])) leftStart--;
+		}
+		// Find right operand
+		let rightStart = opIdx + 1;
+		while (rightStart < expr.length && expr[rightStart] === ' ') rightStart++;
+		let rightEnd = rightStart;
+		if (expr[rightStart] === '(') {
+			let depth = 1;
+			rightEnd++;
+			while (rightEnd < expr.length && depth > 0) {
+				if (expr[rightEnd] === '(') depth++;
+				if (expr[rightEnd] === ')') depth--;
+				rightEnd++;
+			}
+		} else {
+			while (rightEnd < expr.length && /[\d.]/.test(expr[rightEnd])) rightEnd++;
+		}
+		const before = expr.slice(0, leftStart);
+		const highlight = expr.slice(leftStart, rightEnd);
+		const after = expr.slice(rightEnd);
+		return <>{before}<span className={colorClass}>{highlight}</span>{after}</>;
+	}
 
 	return (
 		<>
@@ -200,6 +385,30 @@ const OrderOfOperations = () => {
 			}
 			.shrink-out {
 				animation: shrink-out 0.4s cubic-bezier(0.4,0,0.2,1) both;
+			}
+			.progress-circle {
+				width: 8px;
+				height: 8px;
+				border-radius: 50%;
+				background-color: #E5E7EB;
+				transition: background-color 0.3s ease;
+			}
+			.progress-circle.active {
+				background-color: #5750E3;
+			}
+			.progress-circle.shrink-out {
+				animation: shrink-out 0.4s cubic-bezier(0.4,0,0.2,1) both;
+			}
+			.progress-circle.grow-in {
+				animation: grow-in 0.4s cubic-bezier(0.4,0,0.2,1) both;
+			}
+			.operation-btn {
+				transition: border-color 0.2s, background 0.2s, color 0.2s;
+			}
+			.operation-btn:hover {
+				border-color: #5750E3 !important;
+				background: #edeaff !important;
+				color: #5750E3 !important;
 			}
 			`}</style>
 			<div className="w-[500px] mx-auto mt-5 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05)] bg-white rounded-lg select-none">
@@ -233,7 +442,75 @@ const OrderOfOperations = () => {
 					</div>
 
 					<div className="mt-4 space-y-4">
-						<div className={`w-full min-h-[200px] p-2 bg-white border border-[#5750E3]/30 rounded-md flex justify-center ${showPlaceholder ? 'items-center' : 'items-start'}`}> 
+						<div className={`w-full min-h-[200px] p-2 bg-white border border-[#5750E3]/30 rounded-md flex justify-center ${showPlaceholder ? 'items-center' : 'items-start'} relative`}> 
+							{/* Order of Operations Steps Row */}
+							{!showPlaceholder && (
+								<div className="w-full flex flex-col gap-2 items-center justify-end absolute left-0 bottom-0 pb-4">
+									{/* Instructional Text */}
+									<div className="mb-1 w-full">
+										{(() => {
+											switch (hoveredOp) {
+												case 'paren':
+													return <p className="text-center text-sm text-gray-600 font-medium">Simplify inside the <span className="text-[#5750E3] font-bold">parenthesis</span> from left to right</p>;
+												case 'exp':
+													return <p className="text-center text-sm text-gray-600 font-medium">Simplify the <span className="text-[#5750E3] font-bold">exponents</span> from left to right</p>;
+												case 'muldiv':
+													return <p className="text-center text-sm text-gray-600 font-medium"><span className="text-[#5750E3] font-bold">Multiply</span> or <span className="text-[#5750E3] font-bold">divide</span> from left to right</p>;
+												case 'addsub':
+													return <p className="text-center text-sm text-gray-600 font-medium"><span className="text-[#5750E3] font-bold">Add</span> or <span className="text-[#5750E3] font-bold">subtract</span> from left to right</p>;
+												default:
+													return <p className="text-center text-sm text-gray-600 font-medium">Select the first operation to simplify the expression</p>;
+											}
+										})()}
+									</div>
+									{/* Order of Operations Steps Row */}
+									<div className="flex gap-2 mb-2">
+										{/* Parentheses */}
+										<div
+											className={`operation-btn w-12 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-2xl text-gray-700 select-none ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
+											onMouseEnter={() => setHoveredOp('paren')}
+											onMouseLeave={() => setHoveredOp(null)}
+										>
+											<span className="-mt-[5px]">( )</span>
+										</div>
+										{/* Exponent */}
+										<div
+											className={`operation-btn w-12 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-2xl text-gray-700 select-none ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
+											onMouseEnter={() => setHoveredOp('exp')}
+											onMouseLeave={() => setHoveredOp(null)}
+										>
+											<span className="flex items-center -mt-[5px]"><span className="font-normal">e</span><sup className="text-xs ml-0.5 align-super">x</sup></span>
+										</div>
+										{/* Multiplication/Division */}
+										<div
+											className={`operation-btn w-12 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-2xl text-gray-700 select-none ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
+											onMouseEnter={() => setHoveredOp('muldiv')}
+											onMouseLeave={() => setHoveredOp(null)}
+										>
+											<span className="-mt-[5px]"><span className="mr-1">×</span><span>÷</span></span>
+										</div>
+										{/* Addition/Subtraction */}
+										<div
+											className={`operation-btn w-12 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-2xl text-gray-700 select-none ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
+											onMouseEnter={() => setHoveredOp('addsub')}
+											onMouseLeave={() => setHoveredOp(null)}
+										>
+											<span className="-mt-[5px]"><span className="mr-1">+</span><span>−</span></span>
+										</div>
+									</div>
+									{/* Progress Bar */}
+									{totalSteps > 0 && (
+										<div className="flex gap-2">
+											{[...Array(totalSteps)].map((_, index) => (
+												<div
+													key={`${bigAnimKey}-${index}`}
+													className={`progress-circle ${index + 1 <= currentStep ? 'active' : ''} ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
+												/>
+											))}
+										</div>
+									)}
+								</div>
+							)}
 							{showPlaceholder ? (
 								<p className={`text-gray-500 text-center select-none max-w-[280px] transition-all duration-500 ${isShrinking ? 'scale-0 opacity-0' : isPlaceholderGrowing ? 'grow-in' : 'scale-100 opacity-100'}`}>
 									Enter a <span className={`transition-all duration-300 ${isError ? 'font-bold text-yellow-500' : ''}`}>valid expression</span> to simplify it using the order of operations!
@@ -241,9 +518,17 @@ const OrderOfOperations = () => {
 							) : (
 								<p
 									key={bigAnimKey}
-									className={`text-2xl font-bold text-[#5750E3] select-none mt-2 ${isBigShrinking ? 'shrink-out' : 'grow-in'}`}
+									className={`text-3xl font-bold text-black select-none mt-2 ${isBigShrinking ? 'shrink-out' : 'grow-in'}`}
 								>
-									{formatExpression(displayedExpression)}
+									{hoveredOp === 'paren'
+										? highlightLeftmostParenthesis(formatExpression(displayedExpression), 'text-[#5750E3]')
+										: hoveredOp === 'exp'
+										? highlightLeftmostExponent(formatExpression(displayedExpression), 'text-[#5750E3]')
+										: hoveredOp === 'muldiv'
+										? highlightLeftmostMulDiv(formatExpression(displayedExpression), 'text-[#5750E3]')
+										: hoveredOp === 'addsub'
+										? highlightLeftmostAddSub(formatExpression(displayedExpression), 'text-[#5750E3]')
+										: formatExpression(displayedExpression)}
 								</p>
 							)}
 						</div>
