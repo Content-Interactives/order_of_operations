@@ -23,6 +23,10 @@ const OrderOfOperations = () => {
 	const [isProgressGrowing, setIsProgressGrowing] = useState(false);
 	const [showProgress, setShowProgress] = useState(false);
 	const [hoveredOp, setHoveredOp] = useState(null);
+	const [redGlowOp, setRedGlowOp] = useState(null); // 'paren', 'exp', 'muldiv', 'addsub' or null
+	const [redGlowText, setRedGlowText] = useState(false);
+	const [greenGlowOp, setGreenGlowOp] = useState(null); // 'paren', 'exp', 'muldiv', 'addsub' or null
+	const [greenGlowText, setGreenGlowText] = useState(false);
 
 	const generateRandomNumber = (min, max) => {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -231,8 +235,17 @@ const OrderOfOperations = () => {
 		}, 500);
 	};
 
+	// Helper: Determine the next correct operation in PEMDAS order for the current expression
+	function getNextOperation(expr) {
+		if (/\(/.test(expr)) return 'paren';
+		if (/([\d\)]+)[⁰¹²³⁴⁵⁶⁷⁸⁹]+/.test(formatExpression(expr))) return 'exp';
+		if (/[×÷]/.test(formatExpression(expr))) return 'muldiv';
+		if (/[+−]/.test(formatExpression(expr))) return 'addsub';
+		return null;
+	}
+
 	// Helper to highlight leftmost parenthesis contents
-	function highlightLeftmostParenthesis(expr, colorClass) {
+	function highlightLeftmostParenthesis(expr, colorClass, redGlow, greenGlow) {
 		let start = expr.indexOf('(');
 		if (start === -1) return expr;
 		let depth = 0;
@@ -240,20 +253,19 @@ const OrderOfOperations = () => {
 			if (expr[i] === '(') depth++;
 			if (expr[i] === ')') depth--;
 			if (depth === 0) {
-				// Found matching closing parenthesis
 				const before = expr.slice(0, start);
 				const openParen = expr[start];
 				const inside = expr.slice(start + 1, i);
 				const closeParen = expr[i];
 				const after = expr.slice(i + 1);
-				return <>{before}<span className={colorClass}>{openParen}{inside}{closeParen}</span>{after}</>;
+				return <>{before}<span className={colorClass + (redGlow ? ' text-red-glow' : greenGlow ? ' text-green-glow' : '')}>{openParen}{inside}{closeParen}</span>{after}</>;
 			}
 		}
 		return expr;
 	}
 
 	// Helper to highlight leftmost exponent (base and exponent)
-	function highlightLeftmostExponent(expr, colorClass) {
+	function highlightLeftmostExponent(expr, colorClass, redGlow, greenGlow) {
 		// Match (base)^{exponent} or base^{exponent} (with superscript)
 		// The formatted expression uses unicode superscripts, so match those
 		const superscriptPattern = /([\d\)]+)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/;
@@ -279,11 +291,11 @@ const OrderOfOperations = () => {
 		}
 		const highlight = expr.slice(highlightStart, highlightEnd);
 		const after = expr.slice(highlightEnd);
-		return <>{before}<span className={colorClass}>{highlight}</span>{after}</>;
+		return <>{before}<span className={colorClass + (redGlow ? ' text-red-glow' : greenGlow ? ' text-green-glow' : '')}>{highlight}</span>{after}</>;
 	}
 
 	// Helper to highlight leftmost multiplication/division and its operands
-	function highlightLeftmostMulDiv(expr, colorClass) {
+	function highlightLeftmostMulDiv(expr, colorClass, redGlow, greenGlow) {
 		// Find the leftmost × or ÷
 		const opMatch = expr.match(/[×÷]/);
 		if (!opMatch) return expr;
@@ -325,16 +337,14 @@ const OrderOfOperations = () => {
 		const before = expr.slice(0, leftStart);
 		const highlight = expr.slice(leftStart, rightEnd);
 		const after = expr.slice(rightEnd);
-		return <>{before}<span className={colorClass}>{highlight}</span>{after}</>;
+		return <>{before}<span className={colorClass + (redGlow ? ' text-red-glow' : greenGlow ? ' text-green-glow' : '')}>{highlight}</span>{after}</>;
 	}
 
 	// Helper to highlight leftmost addition/subtraction and its operands
-	function highlightLeftmostAddSub(expr, colorClass) {
-		// Find the leftmost + or −
+	function highlightLeftmostAddSub(expr, colorClass, redGlow, greenGlow) {
 		const opMatch = expr.match(/[+−]/);
 		if (!opMatch) return expr;
 		const opIdx = opMatch.index;
-		// Find left operand
 		let leftStart = opIdx - 1;
 		if (expr[leftStart] === ')') {
 			let depth = 1;
@@ -346,9 +356,9 @@ const OrderOfOperations = () => {
 			}
 			leftStart++;
 		} else {
-			while (leftStart - 1 >= 0 && /[\d.]/.test(expr[leftStart - 1])) leftStart--;
+			// Scan left for digits/decimals and superscripts
+			while (leftStart - 1 >= 0 && /[\d.⁰¹²³⁴⁵⁶⁷⁸⁹]/.test(expr[leftStart - 1])) leftStart--;
 		}
-		// Find right operand
 		let rightStart = opIdx + 1;
 		while (rightStart < expr.length && expr[rightStart] === ' ') rightStart++;
 		let rightEnd = rightStart;
@@ -361,12 +371,33 @@ const OrderOfOperations = () => {
 				rightEnd++;
 			}
 		} else {
-			while (rightEnd < expr.length && /[\d.]/.test(expr[rightEnd])) rightEnd++;
+			while (rightEnd < expr.length && /[\d.⁰¹²³⁴⁵⁶⁷⁸⁹]/.test(expr[rightEnd])) rightEnd++;
 		}
 		const before = expr.slice(0, leftStart);
 		const highlight = expr.slice(leftStart, rightEnd);
 		const after = expr.slice(rightEnd);
-		return <>{before}<span className={colorClass}>{highlight}</span>{after}</>;
+		return <>{before}<span className={colorClass + (redGlow ? ' text-red-glow' : greenGlow ? ' text-green-glow' : '')}>{highlight}</span>{after}</>;
+	}
+
+	// Button click handler
+	function handleOperationClick(op) {
+		const correctOp = getNextOperation(displayedExpression);
+		if (op !== correctOp) {
+			setRedGlowOp(op);
+			setRedGlowText(true);
+			setTimeout(() => {
+				setRedGlowOp(null);
+				setRedGlowText(false);
+			}, 600);
+			return;
+		}
+		setGreenGlowOp(op);
+		setGreenGlowText(true);
+		setTimeout(() => {
+			setGreenGlowOp(null);
+			setGreenGlowText(false);
+		}, 600);
+		// TODO: Implement correct operation logic here
 	}
 
 	return (
@@ -402,13 +433,30 @@ const OrderOfOperations = () => {
 			.progress-circle.grow-in {
 				animation: grow-in 0.4s cubic-bezier(0.4,0,0.2,1) both;
 			}
-			.operation-btn {
-				transition: border-color 0.2s, background 0.2s, color 0.2s;
-			}
-			.operation-btn:hover {
+			.operation-btn:hover:not(.red-glow):not(.green-glow) {
 				border-color: #5750E3 !important;
 				background: #edeaff !important;
 				color: #5750E3 !important;
+			}
+			.red-glow {
+				border-color: #ff4d4f !important;
+				background: #fff0f0 !important;
+				color: #ff4d4f !important;
+				transition: border-color 0.2s, background 0.2s, color 0.2s;
+			}
+			.text-red-glow {
+				color: #ff4d4f !important;
+				transition: color 0.2s;
+			}
+			.green-glow {
+				border-color: #52c41a !important;
+				background: #f6ffed !important;
+				color: #52c41a !important;
+				transition: border-color 0.2s, background 0.2s, color 0.2s;
+			}
+			.text-green-glow {
+				color: #52c41a !important;
+				transition: color 0.2s;
 			}
 			`}</style>
 			<div className="w-[500px] mx-auto mt-5 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05)] bg-white rounded-lg select-none">
@@ -467,33 +515,37 @@ const OrderOfOperations = () => {
 									<div className="flex gap-2 mb-2">
 										{/* Parentheses */}
 										<div
-											className={`operation-btn w-12 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-2xl text-gray-700 select-none ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
+											className={`operation-btn w-12 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-2xl text-gray-700 select-none ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}${redGlowOp === 'paren' ? ' red-glow' : greenGlowOp === 'paren' ? ' green-glow' : ''}`}
 											onMouseEnter={() => setHoveredOp('paren')}
 											onMouseLeave={() => setHoveredOp(null)}
+											onClick={() => handleOperationClick('paren')}
 										>
 											<span className="-mt-[5px]">( )</span>
 										</div>
 										{/* Exponent */}
 										<div
-											className={`operation-btn w-12 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-2xl text-gray-700 select-none ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
+											className={`operation-btn w-12 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-2xl text-gray-700 select-none ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}${redGlowOp === 'exp' ? ' red-glow' : greenGlowOp === 'exp' ? ' green-glow' : ''}`}
 											onMouseEnter={() => setHoveredOp('exp')}
 											onMouseLeave={() => setHoveredOp(null)}
+											onClick={() => handleOperationClick('exp')}
 										>
 											<span className="flex items-center -mt-[5px]"><span className="font-normal">e</span><sup className="text-xs ml-0.5 align-super">x</sup></span>
 										</div>
 										{/* Multiplication/Division */}
 										<div
-											className={`operation-btn w-12 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-2xl text-gray-700 select-none ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
+											className={`operation-btn w-12 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-2xl text-gray-700 select-none ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}${redGlowOp === 'muldiv' ? ' red-glow' : greenGlowOp === 'muldiv' ? ' green-glow' : ''}`}
 											onMouseEnter={() => setHoveredOp('muldiv')}
 											onMouseLeave={() => setHoveredOp(null)}
+											onClick={() => handleOperationClick('muldiv')}
 										>
 											<span className="-mt-[5px]"><span className="mr-1">×</span><span>÷</span></span>
 										</div>
 										{/* Addition/Subtraction */}
 										<div
-											className={`operation-btn w-12 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-2xl text-gray-700 select-none ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
+											className={`operation-btn w-12 h-10 flex items-center justify-center rounded-md border border-gray-300 bg-white text-2xl text-gray-700 select-none ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}${redGlowOp === 'addsub' ? ' red-glow' : greenGlowOp === 'addsub' ? ' green-glow' : ''}`}
 											onMouseEnter={() => setHoveredOp('addsub')}
 											onMouseLeave={() => setHoveredOp(null)}
+											onClick={() => handleOperationClick('addsub')}
 										>
 											<span className="-mt-[5px]"><span className="mr-1">+</span><span>−</span></span>
 										</div>
@@ -521,13 +573,13 @@ const OrderOfOperations = () => {
 									className={`text-3xl font-bold text-black select-none mt-2 ${isBigShrinking ? 'shrink-out' : 'grow-in'}`}
 								>
 									{hoveredOp === 'paren'
-										? highlightLeftmostParenthesis(formatExpression(displayedExpression), 'text-[#5750E3]')
+										? highlightLeftmostParenthesis(formatExpression(displayedExpression), 'text-[#5750E3]', redGlowText, greenGlowText)
 										: hoveredOp === 'exp'
-										? highlightLeftmostExponent(formatExpression(displayedExpression), 'text-[#5750E3]')
+										? highlightLeftmostExponent(formatExpression(displayedExpression), 'text-[#5750E3]', redGlowText, greenGlowText)
 										: hoveredOp === 'muldiv'
-										? highlightLeftmostMulDiv(formatExpression(displayedExpression), 'text-[#5750E3]')
+										? highlightLeftmostMulDiv(formatExpression(displayedExpression), 'text-[#5750E3]', redGlowText, greenGlowText)
 										: hoveredOp === 'addsub'
-										? highlightLeftmostAddSub(formatExpression(displayedExpression), 'text-[#5750E3]')
+										? highlightLeftmostAddSub(formatExpression(displayedExpression), 'text-[#5750E3]', redGlowText, greenGlowText)
 										: formatExpression(displayedExpression)}
 								</p>
 							)}
