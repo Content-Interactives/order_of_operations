@@ -85,8 +85,15 @@ const OrderOfOperations = () => {
 		// Replace multiplication symbols with * and preserve spaces
 		const normalizedValue = value
 			.replace(/[×x]/g, '*')
-			.replace(/[^0-9+\-*/()^ ]/g, ''); // Allow numbers, operators, parentheses, and spaces
-		setExpression(normalizedValue);
+			.replace(/[^0-9+\-*/()^ .]/g, ''); // Allow numbers, operators, parentheses, spaces, and decimal points
+		
+		// Format any large numbers in the input
+		const formattedValue = normalizedValue.replace(/\d+(?:\.\d+)?/g, (match) => {
+			const num = Number(match);
+			return formatLargeNumber(num).toString();
+		});
+		
+		setExpression(formattedValue);
 	};
 
 	const validateExpression = (expr) => {
@@ -103,6 +110,11 @@ const OrderOfOperations = () => {
 		// Check for consecutive operators
 		if (/[+\-*/^]{2,}/.test(expr)) {
 			return { isValid: false, error: "Cannot have consecutive operators" };
+		}
+
+		// Check for nested exponents (e.g., 2^2^2)
+		if (/\d+\^\d+\^/.test(expr)) {
+			return { isValid: false, error: "Nested exponents are not allowed. Use parentheses to clarify the order of operations." };
 		}
 
 		// Check for unmatched parentheses
@@ -136,17 +148,26 @@ const OrderOfOperations = () => {
 		let formatted = expr.replace(/\*/g, '×').replace(/\//g, '÷');
 		
 		// Convert exponents to superscript, including those on parenthesized expressions
-		formatted = formatted.replace(/(\([^)]+\)|\d+(?:\.\d+)?)\^(\d+)/g, (match, base, exponent) => {
-			// Convert each digit of the exponent to superscript
-			const superscriptExponent = exponent.split('').map(digit => {
-				const superscriptMap = {
-					'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
-					'5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'
-				};
-				return superscriptMap[digit] || digit;
-			}).join('');
-			return `${base}${superscriptExponent}`;
-		});
+		// First pass: handle nested exponents
+		while (formatted.includes('^')) {
+			formatted = formatted.replace(/(\([^)]+\)|\d+(?:\.\d+)?)\^(\d+(?:\.\d+)?)/g, (match, base, exponent) => {
+				// Convert each digit of the exponent to superscript, including the decimal point
+				const superscriptExponent = exponent.split('').map(digit => {
+					const superscriptMap = {
+						'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+						'5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+						'.': 'ᐧ'  // Using a raised dot as superscript decimal point
+					};
+					return superscriptMap[digit] || digit;
+				}).join('');
+				
+				// If the base already contains superscripts, wrap it in parentheses
+				if (/[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]/.test(base)) {
+					return `(${base})${superscriptExponent}`;
+				}
+				return `${base}${superscriptExponent}`;
+			});
+		}
 		
 		// Add spaces around operators, but not around parentheses, superscripts, or decimal points
 		formatted = formatted
@@ -202,11 +223,11 @@ const OrderOfOperations = () => {
 		if (/([\d\)]+)[⁰¹²³⁴⁵⁶⁷⁸⁹]+/.test(formatted)) return 'exponents';
 		
 		// Check for multiplication or division
-		const multDivMatch = formatted.match(/\d+\s*[×÷]\s*\d+/);
+		const multDivMatch = formatted.match(/\d+(?:\.\d+)?\s*[×÷]\s*\d+(?:\.\d+)?/);
 		if (multDivMatch) return 'multiplication or division';
 		
 		// Only check for addition or subtraction if there are no multiplication/division operations
-		const addSubMatch = formatted.match(/\d+\s*[+\-−]\s*\d+/);
+		const addSubMatch = formatted.match(/\d+(?:\.\d+)?\s*[+\-−]\s*\d+(?:\.\d+)?/);
 		if (addSubMatch) return 'addition or subtraction';
 		
 		return null;
@@ -217,12 +238,19 @@ const OrderOfOperations = () => {
 		const formatted = formatExpression(expr);
 		
 		if (operation === 'parentheses') {
-			const match = formatted.match(/\(([^()]*[+\-×÷^][^()]*|[^()]*[⁰¹²³⁴⁵⁶⁷⁸⁹][^()]*)\)/);
-			if (match) {
-				return match[0];
+			// First check for parentheses containing exponents
+			const exponentInParensMatch = formatted.match(/\(([^()]*[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ][^()]*|[^()]*[+\-×÷][^()]*)\)/);
+			if (exponentInParensMatch) {
+				return exponentInParensMatch[0];
+			}
+			// Then check for regular parentheses
+			const regularParensMatch = formatted.match(/\(([^()]+)\)/);
+			if (regularParensMatch) {
+				return regularParensMatch[0];
 			}
 		} else if (operation === 'exponents') {
-			const match = formatted.match(/([\d\.\)]+)[⁰¹²³⁴⁵⁶⁷⁸⁹]+/);
+			// Match exponents, including those on parenthesized expressions, with decimal points
+			const match = formatted.match(/(\([^)]+\)|\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/);
 			if (match) return match[0];
 		} else if (operation === 'multiplication or division') {
 			// Match numbers with optional decimals
@@ -250,12 +278,12 @@ const OrderOfOperations = () => {
 				.replace('−', '-')
 				.replace(/\s+/g, '');
 			const result = evaluateExpression(formattedInner);
-			// Round to nearest hundredth if result is a decimal
-			return Number.isInteger(result) ? result : Number(result.toFixed(2));
+			// Format large numbers using scientific notation
+			return formatLargeNumber(result);
 		}
 
 		// Handle exponents first
-		const exponentMatch = operation.match(/([\d\.\)]+)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/);
+		const exponentMatch = operation.match(/([\d\.\)]+)([⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+)/);
 		if (exponentMatch) {
 			const base = exponentMatch[1];
 			let baseValue = base;
@@ -265,13 +293,14 @@ const OrderOfOperations = () => {
 			const exponent = exponentMatch[2].split('').map(digit => {
 				const superscriptMap = {
 					'⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
-					'⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9'
+					'⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+					'ᐧ': '.'  // Convert superscript decimal point back to regular decimal point
 				};
 				return superscriptMap[digit] || digit;
 			}).join('');
 			const result = Math.pow(Number(baseValue), Number(exponent));
-			// Round to nearest hundredth if result is a decimal
-			return Number.isInteger(result) ? result : Number(result.toFixed(2));
+			// Format large numbers using scientific notation
+			return formatLargeNumber(result);
 		}
 
 		// Convert formatted operators back to standard ones for calculation
@@ -303,8 +332,24 @@ const OrderOfOperations = () => {
 				return null;
 		}
 		
-		// Round to nearest hundredth if result is a decimal
-		return Number.isInteger(result) ? result : Number(result.toFixed(2));
+		// Format large numbers using scientific notation
+		return formatLargeNumber(result);
+	};
+
+	// Helper function to format large numbers
+	const formatLargeNumber = (num) => {
+		// If the number is an integer and less than 1 million, return as is
+		if (Number.isInteger(num) && Math.abs(num) < 1000000) {
+			return num;
+		}
+		
+		// For numbers with absolute value >= 1 million or < 0.000001, use scientific notation
+		if (Math.abs(num) >= 1000000 || (Math.abs(num) < 0.000001 && num !== 0)) {
+			return num.toExponential(2);
+		}
+		
+		// For other numbers, round to 2 decimal places
+		return Number(num.toFixed(2));
 	};
 
 	// Add function to evaluate an expression following PEMDAS
@@ -312,35 +357,102 @@ const OrderOfOperations = () => {
 		// Remove all spaces
 		expr = expr.replace(/\s+/g, '');
 		
+		// Helper function to evaluate a single operation
+		const evaluateOperation = (num1, op, num2) => {
+			const n1 = Number(num1);
+			const n2 = Number(num2);
+			let result;
+			
+			switch(op) {
+				case '^':
+					result = Math.pow(n1, n2);
+					break;
+				case '*':
+					result = n1 * n2;
+					break;
+				case '/':
+					result = n1 / n2;
+					break;
+				case '+':
+					result = n1 + n2;
+					break;
+				case '-':
+					result = n1 - n2;
+					break;
+				default:
+					return null;
+			}
+			
+			return Number.isInteger(result) ? result : Number(result.toFixed(2));
+		};
+		
+		// Helper function to evaluate an expression without parentheses
+		const evaluateWithoutParentheses = (expression) => {
+			let result = expression;
+			
+			// Convert superscript numbers back to regular numbers with ^
+			const superscriptMap = {
+				'⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+				'⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9'
+			};
+			
+			// Convert any superscript numbers back to ^ format
+			result = result.replace(/(\d+(?:\.\d+)?)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g, (match, base, exp) => {
+				const regularExp = exp.split('').map(digit => superscriptMap[digit]).join('');
+				return `${base}^${regularExp}`;
+			});
+			
+			// Handle exponents from right to left (right-associative)
+			while (result.includes('^')) {
+				// Find the rightmost ^ operator
+				const lastCaretIndex = result.lastIndexOf('^');
+				if (lastCaretIndex === -1) break;
+				
+				// Find the base (number before ^)
+				const baseMatch = result.slice(0, lastCaretIndex).match(/(\d+(?:\.\d+)?)$/);
+				if (!baseMatch) break;
+				const base = baseMatch[1];
+				
+				// Find the exponent (number after ^)
+				const expMatch = result.slice(lastCaretIndex + 1).match(/^(\d+(?:\.\d+)?)/);
+				if (!expMatch) break;
+				const exp = expMatch[1];
+				
+				// Calculate the result
+				const answer = evaluateOperation(base, '^', exp);
+				
+				// Replace the operation with its result
+				result = result.slice(0, lastCaretIndex - base.length) + 
+						answer + 
+						result.slice(lastCaretIndex + 1 + exp.length);
+			}
+			
+			// Handle multiplication and division
+			while (/[\*\/]/.test(result)) {
+				result = result.replace(/(\d+(?:\.\d+)?)([\*\/])(\d+(?:\.\d+)?)/, (match, num1, op, num2) => {
+					return evaluateOperation(num1, op, num2);
+				});
+			}
+			
+			// Handle addition and subtraction
+			while (/[\+\-]/.test(result)) {
+				result = result.replace(/(\d+(?:\.\d+)?)([\+\-])(\d+(?:\.\d+)?)/, (match, num1, op, num2) => {
+					return evaluateOperation(num1, op, num2);
+				});
+			}
+			
+			return result;
+		};
+		
 		// Handle parentheses first
 		while (expr.includes('(')) {
 			expr = expr.replace(/\(([^()]+)\)/g, (match, innerExpr) => {
-				return evaluateExpression(innerExpr);
+				return evaluateWithoutParentheses(innerExpr);
 			});
 		}
 		
-		// Handle exponents
-		while (expr.includes('^')) {
-			expr = expr.replace(/(\d+)\^(\d+)/g, (match, base, exp) => {
-				return Math.pow(Number(base), Number(exp));
-			});
-		}
-		
-		// Handle multiplication and division
-		while (/[\*\/]/.test(expr)) {
-			expr = expr.replace(/(\d+)([\*\/])(\d+)/, (match, num1, op, num2) => {
-				return op === '*' ? Number(num1) * Number(num2) : Number(num1) / Number(num2);
-			});
-		}
-		
-		// Handle addition and subtraction
-		while (/[\+\-]/.test(expr)) {
-			expr = expr.replace(/(\d+)([\+\-])(\d+)/, (match, num1, op, num2) => {
-				return op === '+' ? Number(num1) + Number(num2) : Number(num1) - Number(num2);
-			});
-		}
-		
-		return Number(expr);
+		// Evaluate the remaining expression
+		return Number(evaluateWithoutParentheses(expr));
 	};
 
 	// Add function to get the simplified expression
@@ -531,9 +643,7 @@ const OrderOfOperations = () => {
 
 	// Add useEffect to track animation states
 	useEffect(() => {
-		console.log('Animation states changed:');
-		console.log('isHighlightedOperationShrinking:', isHighlightedOperationShrinking);
-		console.log('isHighlightedOperationGrowing:', isHighlightedOperationGrowing);
+		// Animation states tracking removed
 	}, [isHighlightedOperationShrinking, isHighlightedOperationGrowing]);
 
 	return (
@@ -566,6 +676,27 @@ const OrderOfOperations = () => {
 			}
 			.simplified-shrink-out {
 				animation: simplified-shrink-out 0.2s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes final-answer-transition {
+				0% { color: inherit; }
+				100% { color: #52c41a; }
+			}
+			.final-answer {
+				animation: final-answer-transition 0.5s cubic-bezier(0.4,0,0.2,1) forwards;
+				animation-delay: 0.2s; /* Wait for grow animation to complete */
+			}
+			.simplified-shrink-out.final-answer {
+				animation: simplified-shrink-out 0.2s cubic-bezier(0.4,0,0.2,1) forwards;
+				animation-delay: 0s;
+			}
+			@keyframes simplified-portion-grow-in {
+				0% { transform: scale(0.9); opacity: 0; }
+				100% { transform: scale(1); opacity: 1; }
+			}
+			.simplified-portion-grow-in {
+				animation: simplified-portion-grow-in 0.5s cubic-bezier(0.4,0,0.2,1) forwards;
+				display: inline-block;
+				transform-origin: center;
 			}
 			.progress-circle {
 				width: 8px;
@@ -707,13 +838,13 @@ const OrderOfOperations = () => {
 							)}
 							{showPlaceholder ? (
 								<p className={`text-gray-500 text-center select-none max-w-[280px] transition-all duration-500 ${isShrinking ? 'scale-0 opacity-0' : isPlaceholderGrowing ? 'grow-in' : 'scale-100 opacity-100'}`}>
-									Enter a <span className={`transition-all duration-300 ${isError ? 'font-bold text-yellow-500' : ''}`}>valid expression</span> to simplify it using the order of operations!
+									Enter a <span className={`transition-all duration-300 ${isError ? 'font-bold text-yellow-500' : ''}`}>valid simple expression</span> to simplify it using the order of operations!
 								</p>
 							) : (
 								<>
 									<p
 										key={bigAnimKey}
-										className={`text-3xl font-bold text-black select-none ${!isSimplifying && (isBigShrinking ? 'simplified-shrink-out' : 'simplified-grow-in')}`}
+										className={`text-3xl font-bold text-black select-none ${isBigShrinking ? 'simplified-shrink-out' : !isSimplifying ? 'simplified-grow-in' : ''} ${getNextOperation(displayedExpression) === null && !isBigShrinking ? 'final-answer' : ''}`}
 									>
 										<span className="expression-wrapper">
 											<span className={`expression-content ${isSimplifying ? 'fading' : ''}`}>
@@ -735,7 +866,7 @@ const OrderOfOperations = () => {
 												))}
 											</span>
 											{isSimplifying && !isHighlightedOperationShrinking && (
-												<span className="simplified-content simplified-grow-in">
+												<span className="simplified-portion-grow-in">
 													{getSimplifiedExpression(displayedExpression, highlightedOperation)}
 												</span>
 											)}
@@ -745,8 +876,6 @@ const OrderOfOperations = () => {
 										<div className="absolute bottom-4 right-4">
 											<Button 
 												onClick={() => {
-													console.log('Continue clicked - Starting animation sequence');
-													
 													// Start the animation sequence
 													setIsContinueButtonShrinking(true);
 													setIsSimplifying(true);
@@ -759,8 +888,6 @@ const OrderOfOperations = () => {
 													
 													// Wait for shrink animation to complete before proceeding
 													setTimeout(() => {
-														console.log('Shrink animation complete - Updating expression');
-														
 														// Calculate and set the simplified expression
 														const simplifiedExpr = getSimplifiedExpression(displayedExpression, currentOperation);
 														
@@ -779,7 +906,6 @@ const OrderOfOperations = () => {
 														
 														// After a brief delay, show the new instruction
 														setTimeout(() => {
-															console.log('Showing new instruction');
 															setShowInstruction(true);
 															
 															// Check if there are more operations to perform
@@ -791,7 +917,6 @@ const OrderOfOperations = () => {
 															} else {
 																// Show operation highlight after instruction appears
 																setTimeout(() => {
-																	console.log('Showing next operation');
 																	const nextOperation = getLeftmostOperation(simplifiedExpr, nextOp);
 																	setShowOperationHighlight(true);
 																	setHighlightedOperation(nextOperation);
@@ -799,7 +924,6 @@ const OrderOfOperations = () => {
 																	
 																	// Show continue button after operation highlight
 																	setTimeout(() => {
-																		console.log('Showing continue button');
 																		setShowContinueButton(true);
 																		setIsHighlightedOperationGrowing(false);
 																	}, 500);
