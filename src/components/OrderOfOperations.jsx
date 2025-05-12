@@ -29,6 +29,8 @@ const OrderOfOperations = () => {
 	const [highlightedOperation, setHighlightedOperation] = useState(null);
 	const [isSimplifying, setIsSimplifying] = useState(false);
 	const [isContinueButtonShrinking, setIsContinueButtonShrinking] = useState(false);
+	const [isHighlightedOperationShrinking, setIsHighlightedOperationShrinking] = useState(false);
+	const [isHighlightedOperationGrowing, setIsHighlightedOperationGrowing] = useState(false);
 
 	const generateRandomNumber = (min, max) => {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -134,7 +136,7 @@ const OrderOfOperations = () => {
 		let formatted = expr.replace(/\*/g, '×').replace(/\//g, '÷');
 		
 		// Convert exponents to superscript, including those on parenthesized expressions
-		formatted = formatted.replace(/(\([^)]+\)|\d+)\^(\d+)/g, (match, base, exponent) => {
+		formatted = formatted.replace(/(\([^)]+\)|\d+(?:\.\d+)?)\^(\d+)/g, (match, base, exponent) => {
 			// Convert each digit of the exponent to superscript
 			const superscriptExponent = exponent.split('').map(digit => {
 				const superscriptMap = {
@@ -146,20 +148,14 @@ const OrderOfOperations = () => {
 			return `${base}${superscriptExponent}`;
 		});
 		
-		// Add spaces around operators, but not around parentheses or superscripts
+		// Add spaces around operators, but not around parentheses, superscripts, or decimal points
 		formatted = formatted
-			.replace(/(\d+)([+\-×÷])/g, '$1 $2') // Space after number before operator
-			.replace(/([+\-×÷])(\d+)/g, '$1 $2') // Space after operator before number
+			.replace(/(\d+(?:\.\d+)?)([+\-×÷])/g, '$1 $2') // Space after number before operator
+			.replace(/([+\-×÷])(\d+(?:\.\d+)?)/g, '$1 $2') // Space after operator before number
 			.replace(/\s*\(\s*/g, '(') // Remove spaces around opening parenthesis
 			.replace(/\s*\)\s*/g, ')') // Remove spaces around closing parenthesis
 			.replace(/\s+/g, ' ') // Replace multiple spaces with single space
 			.trim(); // Remove leading/trailing spaces
-		
-		// Ensure parentheses are properly formatted
-		formatted = formatted
-			.replace(/\(\s+/g, '(') // Remove spaces after opening parenthesis
-			.replace(/\s+\)/g, ')') // Remove spaces before closing parenthesis
-			.replace(/\s+/g, ' '); // Replace multiple spaces with single space
 		
 		return formatted;
 	};
@@ -221,23 +217,20 @@ const OrderOfOperations = () => {
 		const formatted = formatExpression(expr);
 		
 		if (operation === 'parentheses') {
-			// Find the innermost set of parentheses that contains a complete operation
-			// This pattern matches parentheses containing either operators or exponents
 			const match = formatted.match(/\(([^()]*[+\-×÷^][^()]*|[^()]*[⁰¹²³⁴⁵⁶⁷⁸⁹][^()]*)\)/);
 			if (match) {
-				// Return the entire match including parentheses
 				return match[0];
 			}
 		} else if (operation === 'exponents') {
-			const match = formatted.match(/([\d\)]+)[⁰¹²³⁴⁵⁶⁷⁸⁹]+/);
+			const match = formatted.match(/([\d\.\)]+)[⁰¹²³⁴⁵⁶⁷⁸⁹]+/);
 			if (match) return match[0];
 		} else if (operation === 'multiplication or division') {
-			// Find the leftmost multiplication or division
-			const match = formatted.match(/\d+\s*[×÷]\s*\d+/);
+			// Match numbers with optional decimals
+			const match = formatted.match(/\d+(?:\.\d+)?\s*[×÷]\s*\d+(?:\.\d+)?/);
 			if (match) return match[0];
 		} else if (operation === 'addition or subtraction') {
-			// Find the leftmost addition or subtraction by looking at the entire expression
-			const matches = [...formatted.matchAll(/\d+\s*[+\-−]\s*\d+/g)];
+			// Match numbers with optional decimals
+			const matches = [...formatted.matchAll(/\d+(?:\.\d+)?\s*[+\-−]\s*\d+(?:\.\d+)?/g)];
 			if (matches.length > 0) {
 				return matches[0][0];
 			}
@@ -248,29 +241,23 @@ const OrderOfOperations = () => {
 
 	// Add new function to calculate the result of an operation
 	const calculateOperationResult = (operation) => {
-		
 		// If the operation is in parentheses, evaluate all operations inside
 		if (operation.startsWith('(') && operation.endsWith(')')) {
-			// Remove the parentheses and evaluate the inner expression
 			const innerExpr = operation.slice(1, -1);
-			
-			// First format the inner expression to handle any special characters
 			const formattedInner = innerExpr
 				.replace('×', '*')
 				.replace('÷', '/')
 				.replace('−', '-')
 				.replace(/\s+/g, '');
-			
-			// Evaluate the entire inner expression at once
 			const result = evaluateExpression(formattedInner);
-			return result;
+			// Round to nearest hundredth if result is a decimal
+			return Number.isInteger(result) ? result : Number(result.toFixed(2));
 		}
 
 		// Handle exponents first
-		const exponentMatch = operation.match(/([\d\)]+)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/);
+		const exponentMatch = operation.match(/([\d\.\)]+)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/);
 		if (exponentMatch) {
 			const base = exponentMatch[1];
-			// If the base is in parentheses, evaluate it first
 			let baseValue = base;
 			if (base.startsWith('(') && base.endsWith(')')) {
 				baseValue = calculateOperationResult(base);
@@ -282,32 +269,42 @@ const OrderOfOperations = () => {
 				};
 				return superscriptMap[digit] || digit;
 			}).join('');
-			return Math.pow(Number(baseValue), Number(exponent));
+			const result = Math.pow(Number(baseValue), Number(exponent));
+			// Round to nearest hundredth if result is a decimal
+			return Number.isInteger(result) ? result : Number(result.toFixed(2));
 		}
 
 		// Convert formatted operators back to standard ones for calculation
 		const standardOperation = operation
 			.replace('×', '*')
 			.replace('÷', '/')
-			.replace('−', '-')  // Handle the special minus sign
-			.replace(/\s+/g, ''); // Remove all spaces for calculation
+			.replace('−', '-')
+			.replace(/\s+/g, '');
 		
-		// Extract numbers and operator
-		const numbers = standardOperation.match(/\d+/g).map(Number);
+		// Extract numbers and operator, now handling decimals
+		const numbers = standardOperation.match(/\d+(?:\.\d+)?/g).map(Number);
 		const operator = standardOperation.match(/[\+\-\*\/]/)[0];
 		
+		let result;
 		switch (operator) {
 			case '+':
-				return numbers[0] + numbers[1];
+				result = numbers[0] + numbers[1];
+				break;
 			case '-':
-				return numbers[0] - numbers[1];
+				result = numbers[0] - numbers[1];
+				break;
 			case '*':
-				return numbers[0] * numbers[1];
+				result = numbers[0] * numbers[1];
+				break;
 			case '/':
-				return numbers[0] / numbers[1];
+				result = numbers[0] / numbers[1];
+				break;
 			default:
 				return null;
 		}
+		
+		// Round to nearest hundredth if result is a decimal
+		return Number.isInteger(result) ? result : Number(result.toFixed(2));
 	};
 
 	// Add function to evaluate an expression following PEMDAS
@@ -396,6 +393,9 @@ const OrderOfOperations = () => {
 		setShowContinueButton(false);
 		setIsContinueButtonShrinking(false);
 		setHighlightedOperation(null);
+		setIsSimplifying(false);
+		setIsHighlightedOperationShrinking(false);
+		setIsHighlightedOperationGrowing(false);
 
 		// Wait for animations to complete before resetting
 		setTimeout(() => {
@@ -425,6 +425,8 @@ const OrderOfOperations = () => {
 			setHighlightedOperation(null);
 			setIsSimplifying(false);
 			setIsContinueButtonShrinking(false);
+			setIsHighlightedOperationShrinking(false);
+			setIsHighlightedOperationGrowing(false);
 
 			const validation = validateExpression(expression);
 			if (!validation.isValid) {
@@ -527,6 +529,13 @@ const OrderOfOperations = () => {
 		}, 400); // Wait for removal animations to complete
 	};
 
+	// Add useEffect to track animation states
+	useEffect(() => {
+		console.log('Animation states changed:');
+		console.log('isHighlightedOperationShrinking:', isHighlightedOperationShrinking);
+		console.log('isHighlightedOperationGrowing:', isHighlightedOperationGrowing);
+	}, [isHighlightedOperationShrinking, isHighlightedOperationGrowing]);
+
 	return (
 		<>
 			<style>{`
@@ -535,14 +544,28 @@ const OrderOfOperations = () => {
 				100% { transform: scale(1); opacity: 1; }
 			}
 			.grow-in {
-				animation: grow-in 0.4s cubic-bezier(0.4,0,0.2,1) both;
+				animation: grow-in 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
 			}
 			@keyframes shrink-out {
 				0% { transform: scale(1); opacity: 1; }
 				100% { transform: scale(0.7); opacity: 0; }
 			}
 			.shrink-out {
-				animation: shrink-out 0.4s cubic-bezier(0.4,0,0.2,1) both;
+				animation: shrink-out 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes simplified-grow-in {
+				0% { transform: scale(0.8); opacity: 0; }
+				100% { transform: scale(1); opacity: 1; }
+			}
+			.simplified-grow-in {
+				animation: simplified-grow-in 0.2s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes simplified-shrink-out {
+				0% { transform: scale(1); opacity: 1; }
+				100% { transform: scale(0.8); opacity: 0; }
+			}
+			.simplified-shrink-out {
+				animation: simplified-shrink-out 0.2s cubic-bezier(0.4,0,0.2,1) forwards;
 			}
 			.progress-circle {
 				width: 8px;
@@ -608,6 +631,19 @@ const OrderOfOperations = () => {
 			}
 			.highlight {
 				animation: highlight 0.3s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			.highlighted-operation {
+				display: inline-block;
+				transform-origin: center;
+				transition: transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s cubic-bezier(0.4,0,0.2,1);
+			}
+			.highlighted-operation.shrinking {
+				transform: scale(0.7);
+				opacity: 0;
+			}
+			.highlighted-operation.growing {
+				transform: scale(1);
+				opacity: 1;
 			}
 			`}</style>
 			<div className="w-[500px] mx-auto mt-5 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05)] bg-white rounded-lg select-none">
@@ -677,44 +713,75 @@ const OrderOfOperations = () => {
 								<>
 									<p
 										key={bigAnimKey}
-										className={`text-3xl font-bold text-black select-none ${isBigShrinking ? 'shrink-out' : 'grow-in'}`}
+										className={`text-3xl font-bold text-black select-none ${!isSimplifying && (isBigShrinking ? 'simplified-shrink-out' : 'simplified-grow-in')}`}
 									>
-										{formatExpression(displayedExpression).split(highlightedOperation || '').map((part, index, array) => (
-											<React.Fragment key={index}>
-												{part}
-												{index < array.length - 1 && highlightedOperation && (
-													<span className={showOperationHighlight ? 'highlight' : ''}>
-														{highlightedOperation}
-													</span>
-												)}
-											</React.Fragment>
-										))}
+										<span className="expression-wrapper">
+											<span className={`expression-content ${isSimplifying ? 'fading' : ''}`}>
+												{formatExpression(displayedExpression).split(highlightedOperation || '').map((part, index, array) => (
+													<React.Fragment key={index}>
+														{part}
+														{index < array.length - 1 && highlightedOperation && (
+															<span 
+																key={`highlight-${bigAnimKey}-${index}`}
+																className={`highlighted-operation ${showOperationHighlight ? 'highlight' : ''} ${
+																	isHighlightedOperationShrinking ? 'shrinking' : 
+																	isHighlightedOperationGrowing ? 'growing' : ''
+																}`}
+															>
+																{highlightedOperation}
+															</span>
+														)}
+													</React.Fragment>
+												))}
+											</span>
+											{isSimplifying && !isHighlightedOperationShrinking && (
+												<span className="simplified-content simplified-grow-in">
+													{getSimplifiedExpression(displayedExpression, highlightedOperation)}
+												</span>
+											)}
+										</span>
 									</p>
 									{showContinueButton && (
 										<div className="absolute bottom-4 right-4">
 											<Button 
 												onClick={() => {
+													console.log('Continue clicked - Starting animation sequence');
+													
+													// Start the animation sequence
 													setIsContinueButtonShrinking(true);
 													setIsSimplifying(true);
 													setIsInstructionFadingOut(true);
-													// Wait for animation to complete before proceeding
+													setIsHighlightedOperationShrinking(true);
+													setIsHighlightedOperationGrowing(false);
+													
+													// Store the current operation before we start changing states
+													const currentOperation = highlightedOperation;
+													
+													// Wait for shrink animation to complete before proceeding
 													setTimeout(() => {
+														console.log('Shrink animation complete - Updating expression');
+														
 														// Calculate and set the simplified expression
-														const simplifiedExpr = getSimplifiedExpression(displayedExpression, highlightedOperation);
+														const simplifiedExpr = getSimplifiedExpression(displayedExpression, currentOperation);
+														
+														// Update all states at once to prevent stalling
 														setDisplayedExpression(simplifiedExpr);
 														setIsSimplifying(false);
+														setIsHighlightedOperationShrinking(false);
 														setShowOperationHighlight(false);
-														setHighlightedOperation(null);
 														setShowContinueButton(false);
 														setIsContinueButtonShrinking(false);
 														setShowInstruction(false);
 														setIsInstructionFadingOut(false);
-														// Increment the current step
+														setHighlightedOperation(null);
 														setCurrentStep(prev => prev + 1);
+														setBigAnimKey(prev => prev + 1); // Force re-render for grow-in animation
 														
 														// After a brief delay, show the new instruction
 														setTimeout(() => {
+															console.log('Showing new instruction');
 															setShowInstruction(true);
+															
 															// Check if there are more operations to perform
 															const nextOp = getNextOperation(simplifiedExpr);
 															if (nextOp === null) {
@@ -724,16 +791,22 @@ const OrderOfOperations = () => {
 															} else {
 																// Show operation highlight after instruction appears
 																setTimeout(() => {
+																	console.log('Showing next operation');
+																	const nextOperation = getLeftmostOperation(simplifiedExpr, nextOp);
 																	setShowOperationHighlight(true);
-																	setHighlightedOperation(getLeftmostOperation(simplifiedExpr, nextOp));
+																	setHighlightedOperation(nextOperation);
+																	setIsHighlightedOperationGrowing(true);
+																	
 																	// Show continue button after operation highlight
 																	setTimeout(() => {
+																		console.log('Showing continue button');
 																		setShowContinueButton(true);
+																		setIsHighlightedOperationGrowing(false);
 																	}, 500);
 																}, 1000);
 															}
 														}, 500);
-													}, 600);
+													}, 400);
 												}}
 												className={`h-[35px] bg-[#5750E3] hover:bg-[#4a42c7] text-white text-sm px-3 rounded-md select-none touch-manipulation ${isContinueButtonShrinking ? 'shrink-out' : 'fade-in'}`}
 											>
