@@ -35,6 +35,8 @@ const OrderOfOperations = () => {
 	const [isHighlightedOperationVisible, setIsHighlightedOperationVisible] = useState(true);
 	const [highlightedOperationPosition, setHighlightedOperationPosition] = useState({ left: 0, top: 0 });
 	const [highlightedOperationRef, setHighlightedOperationRef] = useState(null);
+	const [isLastInParentheses, setIsLastInParentheses] = useState(false);
+	const [fullParentheses, setFullParentheses] = useState(null);
 
 	const generateRandomNumber = (min, max) => {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -170,6 +172,17 @@ const OrderOfOperations = () => {
 			return { isValid: false, error: "Empty parentheses are not allowed" };
 		}
 
+		// Check for implicit multiplication/distribution
+		// This checks for patterns like 5(2-1) or (2-1)5, but allows exponents on parentheses
+		const hasImplicitMult = /\d+\s*\(|\)\s*\d+/.test(expr);
+		if (hasImplicitMult) {
+			// Check if the expression is a valid parenthesized expression with optional exponent
+			const isValidParenthesizedExpr = /^\([^()]+\)(?:\^[0-9]+)?$/.test(expr.trim());
+			if (!isValidParenthesizedExpr) {
+				return { isValid: false, error: "Implicit multiplication is not allowed. Please use the * operator (e.g., 5 * (2-1) or (2-1) * 5)." };
+			}
+		}
+
 		return { isValid: true };
 	};
 
@@ -220,28 +233,35 @@ const OrderOfOperations = () => {
 		
 		let steps = 0;
 		
-		// Count each set of parentheses as a separate step
+		// Helper function to count operations in an expression
+		const countOperations = (expression) => {
+			let count = 0;
+			// Count exponents
+			count += (expression.match(/\^/g) || []).length;
+			// Count multiplication/division
+			count += (expression.match(/[\*\/]/g) || []).length;
+			// Count addition/subtraction
+			count += (expression.match(/[\+\-]/g) || []).length;
+			return count;
+		};
+
+		// First, find all parenthesized expressions
 		const parenthesesMatches = expr.match(/\([^()]+\)/g) || [];
-		steps += parenthesesMatches.length;
 		
+		// For each parenthesized expression, count its internal operations
+		parenthesesMatches.forEach(match => {
+			const innerExpr = match.slice(1, -1); // Remove the parentheses
+			steps += countOperations(innerExpr);
+		});
+
 		// Create a copy of the expression with parentheses content removed
-		// But preserve operators between parentheses by replacing with a placeholder
 		let exprWithoutParentheses = expr;
 		parenthesesMatches.forEach(match => {
 			exprWithoutParentheses = exprWithoutParentheses.replace(match, 'P');
 		});
-		
-		// Then check for exponents outside parentheses
-		const exponentMatches = [...exprWithoutParentheses.matchAll(/\^/g)] || [];
-		steps += exponentMatches.length;
-		
-		// Then check for multiplication or division outside parentheses
-		const multDivMatches = [...exprWithoutParentheses.matchAll(/[\*\/]/g)] || [];
-		steps += multDivMatches.length;
-		
-		// Finally check for addition or subtraction outside parentheses
-		const addSubMatches = [...exprWithoutParentheses.matchAll(/[\+\-]/g)] || [];
-		steps += addSubMatches.length;
+
+		// Count operations outside parentheses
+		steps += countOperations(exprWithoutParentheses);
 		
 		return steps;
 	};
@@ -250,51 +270,99 @@ const OrderOfOperations = () => {
 	function getNextOperation(expr) {
 		const formatted = formatExpression(expr);
 		
-		// Check for parentheses first
-		if (/\(/.test(formatted)) return 'parentheses';
+		// First check for operations within parentheses
+		const parenthesesMatches = formatted.match(/\([^()]+\)/g) || [];
+		for (const match of parenthesesMatches) {
+			const innerExpr = match.slice(1, -1);
+			
+			// Check for exponents in the inner expression
+			if (/([\d\)]+)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(innerExpr)) {
+				return { type: 'exponents', inParentheses: true, expression: match };
+			}
+			
+			// Check for multiplication or division in the inner expression
+			const multDivMatch = innerExpr.match(/\d+(?:\.\d+)?\s*[×÷]\s*\d+(?:\.\d+)?/);
+			if (multDivMatch) {
+				return { type: 'multiplication or division', inParentheses: true, expression: match };
+			}
+			
+			// Check for addition or subtraction in the inner expression
+			const addSubMatch = innerExpr.match(/\d+(?:\.\d+)?\s*[+\-−]\s*\d+(?:\.\d+)?/);
+			if (addSubMatch) {
+				return { type: 'addition or subtraction', inParentheses: true, expression: match };
+			}
+		}
 		
-		// Check for exponents
-		if (/([\d\)]+)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(formatted)) return 'exponents';
+		// If no operations in parentheses, check the main expression
+		if (/([\d\)]+)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(formatted)) {
+			return { type: 'exponents', inParentheses: false, expression: formatted };
+		}
 		
-		// Check for multiplication or division
 		const multDivMatch = formatted.match(/\d+(?:\.\d+)?\s*[×÷]\s*\d+(?:\.\d+)?/);
-		if (multDivMatch) return 'multiplication or division';
+		if (multDivMatch) {
+			return { type: 'multiplication or division', inParentheses: false, expression: formatted };
+		}
 		
-		// Only check for addition or subtraction if there are no multiplication/division operations
 		const addSubMatch = formatted.match(/\d+(?:\.\d+)?\s*[+\-−]\s*\d+(?:\.\d+)?/);
-		if (addSubMatch) return 'addition or subtraction';
+		if (addSubMatch) {
+			return { type: 'addition or subtraction', inParentheses: false, expression: formatted };
+		}
 		
 		return null;
 	}
 
 	// Helper: Get the leftmost operation in the expression
 	function getLeftmostOperation(expr, operation) {
+		if (!operation) return null;
+		
 		const formatted = formatExpression(expr);
 		
-		if (operation === 'parentheses') {
-			// First check for parentheses containing exponents
-			const exponentInParensMatch = formatted.match(/\(([^()]*[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ][^()]*|[^()]*[+\-×÷][^()]*)\)/);
-			if (exponentInParensMatch) {
-				return exponentInParensMatch[0];
+		if (operation.inParentheses) {
+			const innerExpr = operation.expression.slice(1, -1);
+			let match = null;
+			
+			if (operation.type === 'exponents') {
+				match = innerExpr.match(/(\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/);
+			} else if (operation.type === 'multiplication or division') {
+				match = innerExpr.match(/\d+(?:\.\d+)?\s*[×÷]\s*\d+(?:\.\d+)?/);
+			} else if (operation.type === 'addition or subtraction') {
+				match = innerExpr.match(/\d+(?:\.\d+)?\s*[+\-−]\s*\d+(?:\.\d+)?/);
 			}
-			// Then check for regular parentheses
-			const regularParensMatch = formatted.match(/\(([^()]+)\)/);
-			if (regularParensMatch) {
-				return regularParensMatch[0];
+			
+			if (match) {
+				// Check if this is the last operation in the parentheses
+				const remainingExpr = innerExpr.replace(match[0], '');
+				const hasMoreOperations = /[+\-×÷^]/.test(remainingExpr);
+				
+				if (!hasMoreOperations) {
+					// If it's the last operation, return the full parenthesized expression
+					return {
+						operation: operation.expression,
+						isLastInParentheses: true
+					};
+				}
+				
+				return {
+					operation: match[0],
+					isLastInParentheses: false
+				};
 			}
-		} else if (operation === 'exponents') {
-			// Match exponents, including those on parenthesized expressions, with decimal points
-			const match = formatted.match(/(\([^)]+\)|\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/);
-			if (match) return match[0];
-		} else if (operation === 'multiplication or division') {
-			// Match numbers with optional decimals
-			const match = formatted.match(/\d+(?:\.\d+)?\s*[×÷]\s*\d+(?:\.\d+)?/);
-			if (match) return match[0];
-		} else if (operation === 'addition or subtraction') {
-			// Match numbers with optional decimals
-			const matches = [...formatted.matchAll(/\d+(?:\.\d+)?\s*[+\-−]\s*\d+(?:\.\d+)?/g)];
-			if (matches.length > 0) {
-				return matches[0][0];
+		} else {
+			// Original logic for operations outside parentheses
+			let match = null;
+			if (operation.type === 'exponents') {
+				match = formatted.match(/(\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/);
+			} else if (operation.type === 'multiplication or division') {
+				match = formatted.match(/\d+(?:\.\d+)?\s*[×÷]\s*\d+(?:\.\d+)?/);
+			} else if (operation.type === 'addition or subtraction') {
+				match = formatted.match(/\d+(?:\.\d+)?\s*[+\-−]\s*\d+(?:\.\d+)?/);
+			}
+			
+			if (match) {
+				return {
+					operation: match[0],
+					isLastInParentheses: false
+				};
 			}
 		}
 		
@@ -505,21 +573,44 @@ const OrderOfOperations = () => {
 			// Get the formatted version of the operation (this is what's displayed in the UI)
 			const formattedOperation = formatExpression(operation);
 			
-			// Instead of using regex replacement, find the exact position of the operation
-			const operationIndex = formattedExpr.indexOf(formattedOperation);
-			if (operationIndex !== -1) {
-				// Replace the operation with the result
-				const simplified = formattedExpr.slice(0, operationIndex) + 
-								 result.toString() + 
-								 formattedExpr.slice(operationIndex + formattedOperation.length);
-				
-				// Ensure we don't have any double spaces or spaces around operators
-				const finalResult = formatExpression(simplified)
-					.replace(/\s+/g, ' ')  // Replace multiple spaces with single space
-					.replace(/\s*([+\-×÷])\s*/g, ' $1 ')  // Ensure spaces around operators
-					.trim();
-				
-				return finalResult;
+			// Check if the operation has an exponent
+			const hasExponent = /\)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(formattedOperation);
+			
+			if (hasExponent) {
+				// For parenthesized expressions with exponents, we need to handle the entire expression
+				// including the exponent
+				const operationIndex = formattedExpr.indexOf(formattedOperation);
+				if (operationIndex !== -1) {
+					// Replace the entire operation including the exponent
+					const simplified = formattedExpr.slice(0, operationIndex) + 
+									result.toString() + 
+									formattedExpr.slice(operationIndex + formattedOperation.length);
+					
+					// Ensure we don't have any double spaces or spaces around operators
+					const finalResult = formatExpression(simplified)
+						.replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+						.replace(/\s*([+\-×÷])\s*/g, ' $1 ')  // Ensure spaces around operators
+						.trim();
+					
+					return finalResult;
+				}
+			} else {
+				// For regular parenthesized expressions without exponents
+				const operationIndex = formattedExpr.indexOf(formattedOperation);
+				if (operationIndex !== -1) {
+					// Replace the operation with the result
+					const simplified = formattedExpr.slice(0, operationIndex) + 
+									result.toString() + 
+									formattedExpr.slice(operationIndex + formattedOperation.length);
+					
+					// Ensure we don't have any double spaces or spaces around operators
+					const finalResult = formatExpression(simplified)
+						.replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+						.replace(/\s*([+\-×÷])\s*/g, ' $1 ')  // Ensure spaces around operators
+						.trim();
+					
+					return finalResult;
+				}
 			}
 		}
 		
@@ -546,6 +637,8 @@ const OrderOfOperations = () => {
 		setCurrentOperationResult(null);
 		setHighlightedOperationPosition({ left: 0, top: 0 });
 		setHighlightedOperationRef(null);
+		setIsLastInParentheses(false);
+		setFullParentheses(null);
 
 		// Wait for animations to complete before resetting
 		setTimeout(() => {
@@ -581,6 +674,8 @@ const OrderOfOperations = () => {
 			setCurrentOperationResult(null);
 			setHighlightedOperationPosition({ left: 0, top: 0 });
 			setHighlightedOperationRef(null);
+			setIsLastInParentheses(false);
+			setFullParentheses(null);
 
 			const validation = validateExpression(expression);
 			if (!validation.isValid) {
@@ -648,7 +743,10 @@ const OrderOfOperations = () => {
 						setTimeout(() => {
 							setShowOperationHighlight(true);
 							const nextOp = getNextOperation(expression);
-							setHighlightedOperation(getLeftmostOperation(expression, nextOp));
+							const leftmostOp = getLeftmostOperation(expression, nextOp);
+							setHighlightedOperation(leftmostOp.operation);
+							setIsLastInParentheses(leftmostOp.isLastInParentheses);
+							setFullParentheses(leftmostOp.fullParentheses);
 							// Show continue button after operation highlight
 							setTimeout(() => {
 								setShowContinueButton(true);
@@ -672,7 +770,10 @@ const OrderOfOperations = () => {
 					setTimeout(() => {
 						setShowOperationHighlight(true);
 						const nextOp = getNextOperation(expression);
-						setHighlightedOperation(getLeftmostOperation(expression, nextOp));
+						const leftmostOp = getLeftmostOperation(expression, nextOp);
+						setHighlightedOperation(leftmostOp.operation);
+						setIsLastInParentheses(leftmostOp.isLastInParentheses);
+						setFullParentheses(leftmostOp.fullParentheses);
 						// Show continue button after operation highlight
 						setTimeout(() => {
 							setShowContinueButton(true);
@@ -683,13 +784,34 @@ const OrderOfOperations = () => {
 		}, 400); // Wait for removal animations to complete
 	};
 
-	const getCurrentPemdasStep = (operation) => {
-		if (!operation) return null;
-		if (operation.includes('(')) return 'P';
-		if (operation.includes('^') || operation.includes('²')) return 'E';
-		if (operation.includes('×') || operation.includes('÷')) return 'MD';
-		if (operation.includes('+') || operation.includes('-')) return 'AS';
-		return null;
+	const getCurrentPemdasStep = (operation, isLastInParentheses) => {
+		if (!operation) return { current: null, inParentheses: false };
+		
+		// If we're in parentheses, we need to highlight both P and the current operation
+		if (isLastInParentheses) {
+			if (operation.includes('^') || operation.includes('²')) {
+				return { current: '^', inParentheses: true };
+			}
+			if (operation.includes('×') || operation.includes('÷')) {
+				return { current: '×÷', inParentheses: true };
+			}
+			if (operation.includes('+') || operation.includes('-')) {
+				return { current: '+-', inParentheses: true };
+			}
+		}
+		
+		// Regular operation highlighting
+		if (operation.includes('^') || operation.includes('²')) {
+			return { current: '^', inParentheses: false };
+		}
+		if (operation.includes('×') || operation.includes('÷')) {
+			return { current: '×÷', inParentheses: false };
+		}
+		if (operation.includes('+') || operation.includes('-')) {
+			return { current: '+-', inParentheses: false };
+		}
+		
+		return { current: null, inParentheses: false };
 	};
 
 	// Add useEffect to track animation states
@@ -893,8 +1015,8 @@ const OrderOfOperations = () => {
 										{getNextOperation(displayedExpression) === null 
 											? "We have successfully simplified using the order of operations!"
 											: currentStep === 1
-												? <>According to PEMDAS, the first operation to do here would be the leftmost <span className="font-bold">{getNextOperation(displayedExpression)}</span>.</>
-												: <>The next step according to PEMDAS would be the leftmost <span className="font-bold">{getNextOperation(displayedExpression)}</span>.</>
+												? <>According to PEMDAS, the first operation to do here would be the leftmost <span className="font-bold">{getNextOperation(displayedExpression).type}</span>{getNextOperation(displayedExpression).inParentheses ? " in the leftmost parenthesis" : ""}.</>
+												: <>The next step according to PEMDAS would be the leftmost <span className="font-bold">{getNextOperation(displayedExpression).type}</span>{getNextOperation(displayedExpression).inParentheses ? " in the leftmost parenthesis" : ""}.</>
 										}
 									</p>
 								</div>
@@ -915,10 +1037,18 @@ const OrderOfOperations = () => {
 									{/* PEMDAS Boxes */}
 									<div className="absolute left-3 bottom-3">
 										<div className={`flex gap-1 ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}>
-											<div className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-colors duration-300 ${getCurrentPemdasStep(highlightedOperation) === 'P' ? 'bg-[#CDCAF7] text-[#5750E3]' : 'bg-[#5750E3]/10 text-[#5750E3]'}`}>P</div>
-											<div className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-colors duration-300 ${getCurrentPemdasStep(highlightedOperation) === 'E' ? 'bg-[#CDCAF7] text-[#5750E3]' : 'bg-[#5750E3]/10 text-[#5750E3]'}`}>E</div>
-											<div className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-colors duration-300 ${getCurrentPemdasStep(highlightedOperation) === 'MD' ? 'bg-[#CDCAF7] text-[#5750E3]' : 'bg-[#5750E3]/10 text-[#5750E3]'}`}>MD</div>
-											<div className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-colors duration-300 ${getCurrentPemdasStep(highlightedOperation) === 'AS' ? 'bg-[#CDCAF7] text-[#5750E3]' : 'bg-[#5750E3]/10 text-[#5750E3]'}`}>AS</div>
+											<div className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-colors duration-300 ${
+												getCurrentPemdasStep(highlightedOperation, isLastInParentheses).inParentheses ? 'bg-[#CDCAF7] text-[#5750E3]' : 'bg-[#5750E3]/10 text-[#5750E3]'
+											}`}>( )</div>
+											<div className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-colors duration-300 ${
+												getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '^' ? 'bg-[#CDCAF7] text-[#5750E3]' : 'bg-[#5750E3]/10 text-[#5750E3]'
+											}`}>^</div>
+											<div className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-colors duration-300 ${
+												getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '×÷' ? 'bg-[#CDCAF7] text-[#5750E3]' : 'bg-[#5750E3]/10 text-[#5750E3]'
+											}`}>×÷</div>
+											<div className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-colors duration-300 ${
+												getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '+-' ? 'bg-[#CDCAF7] text-[#5750E3]' : 'bg-[#5750E3]/10 text-[#5750E3]'
+											}`}>+-</div>
 										</div>
 									</div>
 								</div>
@@ -940,7 +1070,6 @@ const OrderOfOperations = () => {
 														{part}
 														{index < array.length - 1 && highlightedOperation && (
 															<span 
-																key={`highlight-${bigAnimKey}-${index}`}
 																className={`highlighted-operation ${showOperationHighlight ? 'highlight' : ''} ${
 																	isHighlightedOperationShrinking ? 'shrinking' : 
 																	isHighlightedOperationGrowing ? 'growing' : ''
@@ -1009,14 +1138,14 @@ const OrderOfOperations = () => {
 															setTimeout(() => {
 																setDisplayedExpression(simplifiedExpr);
 																setIsSimplifying(false);
-																setCurrentOperationResult(null); // Clear the operation result
+																setCurrentOperationResult(null);
 																
 																setShowContinueButton(false);
 																setIsContinueButtonShrinking(false);
 																setShowInstruction(false);
 																setIsInstructionFadingOut(false);
 																setCurrentStep(prev => prev + 1);
-																setBigAnimKey(prev => prev + 1); // Force re-render for grow-in animation
+																setBigAnimKey(prev => prev + 1);
 																
 																// After a brief delay, show the new instruction
 																setTimeout(() => {
@@ -1033,7 +1162,8 @@ const OrderOfOperations = () => {
 																		setTimeout(() => {
 																			const nextOperation = getLeftmostOperation(simplifiedExpr, nextOp);
 																			setShowOperationHighlight(true);
-																			setHighlightedOperation(nextOperation);
+																			setHighlightedOperation(nextOperation.operation);
+																			setIsLastInParentheses(nextOperation.isLastInParentheses);
 																			setIsHighlightedOperationVisible(true);
 																			setIsHighlightedOperationGrowing(true);
 																			
