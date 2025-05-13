@@ -31,6 +31,10 @@ const OrderOfOperations = () => {
 	const [isContinueButtonShrinking, setIsContinueButtonShrinking] = useState(false);
 	const [isHighlightedOperationShrinking, setIsHighlightedOperationShrinking] = useState(false);
 	const [isHighlightedOperationGrowing, setIsHighlightedOperationGrowing] = useState(false);
+	const [currentOperationResult, setCurrentOperationResult] = useState(null);
+	const [isHighlightedOperationVisible, setIsHighlightedOperationVisible] = useState(true);
+	const [highlightedOperationPosition, setHighlightedOperationPosition] = useState({ left: 0, top: 0 });
+	const [highlightedOperationRef, setHighlightedOperationRef] = useState(null);
 
 	const generateRandomNumber = (min, max) => {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -117,6 +121,32 @@ const OrderOfOperations = () => {
 			return { isValid: false, error: "Nested exponents are not allowed. Use parentheses to clarify the order of operations." };
 		}
 
+		// Check for invalid decimal point usage
+		// First, split the expression into tokens (numbers, operators, parentheses)
+		const tokens = expr.match(/\d+\.?\d*|\.\d+|[+\-*/^()]/g) || [];
+		
+		// Check each token that contains a decimal point
+		for (const token of tokens) {
+			if (token.includes('.')) {
+				// Count decimal points in the token
+				const decimalCount = (token.match(/\./g) || []).length;
+				if (decimalCount > 1) {
+					return { isValid: false, error: "Invalid decimal point usage. Each number can only have one decimal point." };
+				}
+				
+				// Check if decimal point is at start or end of number
+				if (token.startsWith('.') || token.endsWith('.')) {
+					// These are valid cases (.2 or 2.)
+					continue;
+				}
+				
+				// Check if decimal point is between digits
+				if (!/^\d+\.\d+$/.test(token)) {
+					return { isValid: false, error: "Invalid decimal point usage. Decimal points must be between digits." };
+				}
+			}
+		}
+
 		// Check for unmatched parentheses
 		let parenthesesCount = 0;
 		for (let char of expr) {
@@ -144,8 +174,12 @@ const OrderOfOperations = () => {
 	};
 
 	const formatExpression = (expr) => {
-		// First replace * and / with × and ÷
-		let formatted = expr.replace(/\*/g, '×').replace(/\//g, '÷');
+		// First normalize decimal numbers (e.g., .2 -> 0.2, 2. -> 2)
+		let formatted = expr.replace(/(?<!\d)\.(\d+)/g, '0.$1')  // .2 -> 0.2
+			.replace(/(\d+)\.(?!\d)/g, '$1');  // 2. -> 2
+		
+		// Then replace * and / with × and ÷
+		formatted = formatted.replace(/\*/g, '×').replace(/\//g, '÷');
 		
 		// Convert exponents to superscript, including those on parenthesized expressions
 		// First pass: handle nested exponents
@@ -220,7 +254,7 @@ const OrderOfOperations = () => {
 		if (/\(/.test(formatted)) return 'parentheses';
 		
 		// Check for exponents
-		if (/([\d\)]+)[⁰¹²³⁴⁵⁶⁷⁸⁹]+/.test(formatted)) return 'exponents';
+		if (/([\d\)]+)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(formatted)) return 'exponents';
 		
 		// Check for multiplication or division
 		const multDivMatch = formatted.match(/\d+(?:\.\d+)?\s*[×÷]\s*\d+(?:\.\d+)?/);
@@ -508,6 +542,10 @@ const OrderOfOperations = () => {
 		setIsSimplifying(false);
 		setIsHighlightedOperationShrinking(false);
 		setIsHighlightedOperationGrowing(false);
+		setIsHighlightedOperationVisible(true);
+		setCurrentOperationResult(null);
+		setHighlightedOperationPosition({ left: 0, top: 0 });
+		setHighlightedOperationRef(null);
 
 		// Wait for animations to complete before resetting
 		setTimeout(() => {
@@ -539,6 +577,10 @@ const OrderOfOperations = () => {
 			setIsContinueButtonShrinking(false);
 			setIsHighlightedOperationShrinking(false);
 			setIsHighlightedOperationGrowing(false);
+			setIsHighlightedOperationVisible(true);
+			setCurrentOperationResult(null);
+			setHighlightedOperationPosition({ left: 0, top: 0 });
+			setHighlightedOperationRef(null);
 
 			const validation = validateExpression(expression);
 			if (!validation.isValid) {
@@ -641,10 +683,26 @@ const OrderOfOperations = () => {
 		}, 400); // Wait for removal animations to complete
 	};
 
+	const getCurrentPemdasStep = (operation) => {
+		if (!operation) return null;
+		if (operation.includes('(')) return 'P';
+		if (operation.includes('^') || operation.includes('²')) return 'E';
+		if (operation.includes('×') || operation.includes('÷')) return 'MD';
+		if (operation.includes('+') || operation.includes('-')) return 'AS';
+		return null;
+	};
+
 	// Add useEffect to track animation states
 	useEffect(() => {
-		// Animation states tracking removed
-	}, [isHighlightedOperationShrinking, isHighlightedOperationGrowing]);
+		if (highlightedOperationRef && isHighlightedOperationVisible) {
+			const rect = highlightedOperationRef.getBoundingClientRect();
+			const parentRect = highlightedOperationRef.parentElement.getBoundingClientRect();
+			setHighlightedOperationPosition({
+				left: rect.left - parentRect.left + rect.width / 2,
+				top: rect.top - parentRect.top + rect.height / 2
+			});
+		}
+	}, [highlightedOperationRef, isHighlightedOperationVisible]);
 
 	return (
 		<>
@@ -664,11 +722,27 @@ const OrderOfOperations = () => {
 				animation: shrink-out 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
 			}
 			@keyframes simplified-grow-in {
-				0% { transform: scale(0.8); opacity: 0; }
-				100% { transform: scale(1); opacity: 1; }
+				0% { 
+					transform: translate(-50%, -50%) scale(0.8); 
+					opacity: 0;
+				}
+				100% { 
+					transform: translate(-50%, -50%) scale(1); 
+					opacity: 1;
+				}
 			}
 			.simplified-grow-in {
-				animation: simplified-grow-in 0.2s cubic-bezier(0.4,0,0.2,1) forwards;
+				display: inline-block;
+				animation: simplified-grow-in 0.5s cubic-bezier(0.4,0,0.2,1) forwards;
+				position: absolute;
+				z-index: 10;
+				white-space: nowrap;
+				padding-bottom: 4px;
+			}
+			.expression-wrapper {
+				position: relative;
+				display: inline-block;
+				min-height: 50px;
 			}
 			@keyframes simplified-shrink-out {
 				0% { transform: scale(1); opacity: 1; }
@@ -679,7 +753,7 @@ const OrderOfOperations = () => {
 			}
 			@keyframes final-answer-transition {
 				0% { color: inherit; }
-				100% { color: #52c41a; }
+				100% { color: #008545; }
 			}
 			.final-answer {
 				animation: final-answer-transition 0.5s cubic-bezier(0.4,0,0.2,1) forwards;
@@ -763,14 +837,18 @@ const OrderOfOperations = () => {
 			.highlight {
 				animation: highlight 0.3s cubic-bezier(0.4,0,0.2,1) forwards;
 			}
+			@keyframes bounce-then-shrink {
+				0% { transform: scale(1); opacity: 1; }
+				50% { transform: scale(1.1); opacity: 1; }
+				100% { transform: scale(0.8); opacity: 0; }
+			}
 			.highlighted-operation {
 				display: inline-block;
 				transform-origin: center;
-				transition: transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s cubic-bezier(0.4,0,0.2,1);
+				transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.3s cubic-bezier(0.4,0,0.2,1);
 			}
 			.highlighted-operation.shrinking {
-				transform: scale(0.7);
-				opacity: 0;
+				animation: bounce-then-shrink 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
 			}
 			.highlighted-operation.growing {
 				transform: scale(1);
@@ -822,10 +900,10 @@ const OrderOfOperations = () => {
 								</div>
 							)}
 							{!showPlaceholder && (
-								<div className="w-full flex flex-col gap-2 items-center justify-end absolute left-0 bottom-0 pb-4">
+								<div className="w-full flex flex-col gap-2 items-center justify-end absolute left-0 bottom-0 pb-5">
 									{/* Progress Bar */}
 									{totalSteps > 0 && (
-										<div className="flex gap-2">
+										<div className="flex gap-2 -mt-[5px]">
 											{[...Array(totalSteps)].map((_, index) => (
 												<div
 													key={`${bigAnimKey}-${index}`}
@@ -834,6 +912,15 @@ const OrderOfOperations = () => {
 											))}
 										</div>
 									)}
+									{/* PEMDAS Boxes */}
+									<div className="absolute left-3 bottom-3">
+										<div className={`flex gap-1 ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}>
+											<div className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-colors duration-300 ${getCurrentPemdasStep(highlightedOperation) === 'P' ? 'bg-[#CDCAF7] text-[#5750E3]' : 'bg-[#5750E3]/10 text-[#5750E3]'}`}>P</div>
+											<div className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-colors duration-300 ${getCurrentPemdasStep(highlightedOperation) === 'E' ? 'bg-[#CDCAF7] text-[#5750E3]' : 'bg-[#5750E3]/10 text-[#5750E3]'}`}>E</div>
+											<div className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-colors duration-300 ${getCurrentPemdasStep(highlightedOperation) === 'MD' ? 'bg-[#CDCAF7] text-[#5750E3]' : 'bg-[#5750E3]/10 text-[#5750E3]'}`}>MD</div>
+											<div className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-colors duration-300 ${getCurrentPemdasStep(highlightedOperation) === 'AS' ? 'bg-[#CDCAF7] text-[#5750E3]' : 'bg-[#5750E3]/10 text-[#5750E3]'}`}>AS</div>
+										</div>
+									</div>
 								</div>
 							)}
 							{showPlaceholder ? (
@@ -844,10 +931,10 @@ const OrderOfOperations = () => {
 								<>
 									<p
 										key={bigAnimKey}
-										className={`text-3xl font-bold text-black select-none ${isBigShrinking ? 'simplified-shrink-out' : !isSimplifying ? 'simplified-grow-in' : ''} ${getNextOperation(displayedExpression) === null && !isBigShrinking ? 'final-answer' : ''}`}
+										className={`text-3xl font-bold text-black select-none ${isBigShrinking ? 'simplified-shrink-out' : ''} ${getNextOperation(displayedExpression) === null && !isBigShrinking ? 'final-answer' : ''} ${isProgressGrowing ? 'grow-in' : ''}`}
 									>
 										<span className="expression-wrapper">
-											<span className={`expression-content ${isSimplifying ? 'fading' : ''}`}>
+											<span className="expression-content">
 												{formatExpression(displayedExpression).split(highlightedOperation || '').map((part, index, array) => (
 													<React.Fragment key={index}>
 														{part}
@@ -858,6 +945,11 @@ const OrderOfOperations = () => {
 																	isHighlightedOperationShrinking ? 'shrinking' : 
 																	isHighlightedOperationGrowing ? 'growing' : ''
 																}`}
+																style={{
+																	visibility: isHighlightedOperationVisible ? 'visible' : 'hidden',
+																	display: 'inline-block'
+																}}
+																ref={setHighlightedOperationRef}
 															>
 																{highlightedOperation}
 															</span>
@@ -866,19 +958,29 @@ const OrderOfOperations = () => {
 												))}
 											</span>
 											{isSimplifying && !isHighlightedOperationShrinking && (
-												<span className="simplified-portion-grow-in">
-													{getSimplifiedExpression(displayedExpression, highlightedOperation)}
+												<span 
+													className="simplified-grow-in"
+													style={{
+														position: 'absolute',
+														left: `${highlightedOperationPosition.left}px`,
+														top: `${highlightedOperationPosition.top}px`,
+														transform: 'translate(-50%, -50%)',
+														zIndex: 10,
+														display: 'inline-block',
+														whiteSpace: 'nowrap'
+													}}
+												>
+													{currentOperationResult}
 												</span>
 											)}
 										</span>
 									</p>
 									{showContinueButton && (
-										<div className="absolute bottom-4 right-4">
+										<div className="absolute bottom-3 right-3">
 											<Button 
 												onClick={() => {
 													// Start the animation sequence
 													setIsContinueButtonShrinking(true);
-													setIsSimplifying(true);
 													setIsInstructionFadingOut(true);
 													setIsHighlightedOperationShrinking(true);
 													setIsHighlightedOperationGrowing(false);
@@ -886,51 +988,66 @@ const OrderOfOperations = () => {
 													// Store the current operation before we start changing states
 													const currentOperation = highlightedOperation;
 													
+													// Calculate the simplified expression and result while we still have the operation
+													const simplifiedExpr = getSimplifiedExpression(displayedExpression, currentOperation);
+													const operationResult = calculateOperationResult(currentOperation);
+													
+													// Store the operation result in state
+													setCurrentOperationResult(operationResult);
+													
 													// Wait for shrink animation to complete before proceeding
 													setTimeout(() => {
-														// Calculate and set the simplified expression
-														const simplifiedExpr = getSimplifiedExpression(displayedExpression, currentOperation);
-														
-														// Update all states at once to prevent stalling
-														setDisplayedExpression(simplifiedExpr);
-														setIsSimplifying(false);
+														// Reset shrink state but keep the space occupied
 														setIsHighlightedOperationShrinking(false);
-														setShowOperationHighlight(false);
-														setShowContinueButton(false);
-														setIsContinueButtonShrinking(false);
-														setShowInstruction(false);
-														setIsInstructionFadingOut(false);
-														setHighlightedOperation(null);
-														setCurrentStep(prev => prev + 1);
-														setBigAnimKey(prev => prev + 1); // Force re-render for grow-in animation
+														setIsHighlightedOperationVisible(false);
 														
-														// After a brief delay, show the new instruction
-														setTimeout(() => {
-															setShowInstruction(true);
+														// Small delay to ensure shrink state is reset
+														requestAnimationFrame(() => {
+															setIsSimplifying(true);
 															
-															// Check if there are more operations to perform
-															const nextOp = getNextOperation(simplifiedExpr);
-															if (nextOp === null) {
-																// No more operations - show completion message
-																setShowOperationHighlight(false);
-																setHighlightedOperation(null);
-															} else {
-																// Show operation highlight after instruction appears
+															// Wait for the simplified portion animation to complete before updating the entire expression
+															setTimeout(() => {
+																setDisplayedExpression(simplifiedExpr);
+																setIsSimplifying(false);
+																setCurrentOperationResult(null); // Clear the operation result
+																
+																setShowContinueButton(false);
+																setIsContinueButtonShrinking(false);
+																setShowInstruction(false);
+																setIsInstructionFadingOut(false);
+																setCurrentStep(prev => prev + 1);
+																setBigAnimKey(prev => prev + 1); // Force re-render for grow-in animation
+																
+																// After a brief delay, show the new instruction
 																setTimeout(() => {
-																	const nextOperation = getLeftmostOperation(simplifiedExpr, nextOp);
-																	setShowOperationHighlight(true);
-																	setHighlightedOperation(nextOperation);
-																	setIsHighlightedOperationGrowing(true);
+																	setShowInstruction(true);
 																	
-																	// Show continue button after operation highlight
-																	setTimeout(() => {
-																		setShowContinueButton(true);
-																		setIsHighlightedOperationGrowing(false);
-																	}, 500);
-																}, 1000);
-															}
-														}, 500);
-													}, 400);
+																	// Check if there are more operations to perform
+																	const nextOp = getNextOperation(simplifiedExpr);
+																	if (nextOp === null) {
+																		// No more operations - show completion message
+																		setShowOperationHighlight(false);
+																		setHighlightedOperation(null);
+																	} else {
+																		// Show operation highlight after instruction appears
+																		setTimeout(() => {
+																			const nextOperation = getLeftmostOperation(simplifiedExpr, nextOp);
+																			setShowOperationHighlight(true);
+																			setHighlightedOperation(nextOperation);
+																			setIsHighlightedOperationVisible(true);
+																			setIsHighlightedOperationGrowing(true);
+																			
+																			// Show continue button after operation highlight
+																			setTimeout(() => {
+																				setShowContinueButton(true);
+																				setIsHighlightedOperationGrowing(false);
+																			}, 500);
+																		}, 1000);
+																	}
+																}, 500);
+															}, 1000);
+														});
+													}, 600);
 												}}
 												className={`h-[35px] bg-[#5750E3] hover:bg-[#4a42c7] text-white text-sm px-3 rounded-md select-none touch-manipulation ${isContinueButtonShrinking ? 'shrink-out' : 'fade-in'}`}
 											>
