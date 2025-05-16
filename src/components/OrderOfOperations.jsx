@@ -22,8 +22,6 @@ const OrderOfOperations = () => {
 	const [isProgressShrinking, setIsProgressShrinking] = useState(false);
 	const [isProgressGrowing, setIsProgressGrowing] = useState(false);
 	const [showProgress, setShowProgress] = useState(false);
-	const [showInstruction, setShowInstruction] = useState(false);
-	const [isInstructionFadingOut, setIsInstructionFadingOut] = useState(false);
 	const [showOperationHighlight, setShowOperationHighlight] = useState(false);
 	const [showContinueButton, setShowContinueButton] = useState(false);
 	const [highlightedOperation, setHighlightedOperation] = useState(null);
@@ -37,6 +35,13 @@ const OrderOfOperations = () => {
 	const [highlightedOperationRef, setHighlightedOperationRef] = useState(null);
 	const [isLastInParentheses, setIsLastInParentheses] = useState(false);
 	const [fullParentheses, setFullParentheses] = useState(null);
+	const [isFirstValidExpression, setIsFirstValidExpression] = useState(true);
+	const [showPemdasWords, setShowPemdasWords] = useState(false);
+	const [animatingWords, setAnimatingWords] = useState([]);
+	const [showPemdasSymbols, setShowPemdasSymbols] = useState(false);
+	const [animatingSymbols, setAnimatingSymbols] = useState([]);
+	const [isTestContentShrinking, setIsTestContentShrinking] = useState(false);
+	const [showTestContent, setShowTestContent] = useState(true);
 
 	const generateRandomNumber = (min, max) => {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -625,7 +630,6 @@ const OrderOfOperations = () => {
 		// First trigger removal animations
 		setIsBigShrinking(true);
 		setIsProgressShrinking(true);
-		setIsInstructionFadingOut(true);
 		setShowOperationHighlight(false);
 		setShowContinueButton(false);
 		setIsContinueButtonShrinking(false);
@@ -661,8 +665,6 @@ const OrderOfOperations = () => {
 			setIsProgressShrinking(false);
 			setIsProgressGrowing(false);
 			setShowProgress(false);
-			setShowInstruction(false);
-			setIsInstructionFadingOut(false);
 			setShowOperationHighlight(false);
 			setShowContinueButton(false);
 			setHighlightedOperation(null);
@@ -682,7 +684,6 @@ const OrderOfOperations = () => {
 				if (!showPlaceholder) {
 					setIsBigShrinking(true);
 					setIsProgressShrinking(true);
-					setIsInstructionFadingOut(true);
 					setShowOperationHighlight(false);
 					setShowContinueButton(false);
 					setIsContinueButtonShrinking(false);
@@ -694,8 +695,6 @@ const OrderOfOperations = () => {
 						setShowProgress(false);
 						setIsPlaceholderGrowing(true);
 						setIsError(true);
-						setShowInstruction(false);
-						setIsInstructionFadingOut(false);
 						setTimeout(() => {
 							setIsError(false);
 							setIsPlaceholderGrowing(false);
@@ -710,50 +709,38 @@ const OrderOfOperations = () => {
 
 			// Start the animation sequence
 			setIsProgressShrinking(true);
-			setIsInstructionFadingOut(true);
 			setShowOperationHighlight(false);
 			setShowContinueButton(false);
 			setIsContinueButtonShrinking(false);
 			setHighlightedOperation(null);
 			setTimeout(() => {
-				// After shrinking, update the steps
 				setTotalSteps(calculateTotalSteps(expression));
 				setCurrentStep(1);
 				setIsProgressShrinking(false);
 				setIsProgressGrowing(true);
-				setShowInstruction(false);
-				setIsInstructionFadingOut(false);
-				
-				// After a brief delay, start growing
 				setTimeout(() => {
 					setIsProgressGrowing(false);
 				}, 400);
 			}, 400);
 
 			if (!showPlaceholder) {
-				setIsBigShrinking(true);
+				setIsShrinking(true);
 				setTimeout(() => {
 					setDisplayedExpression(expression);
-					setIsBigShrinking(false);
+					setIsShrinking(false);
 					setBigAnimKey(prev => prev + 1);
-					// Show instruction after expression appears
 					setTimeout(() => {
-						setShowInstruction(true);
-						// Show operation highlight after instruction appears
+						setShowOperationHighlight(true);
+						const nextOp = getNextOperation(displayedExpression);
+						const leftmostOp = getLeftmostOperation(displayedExpression, nextOp);
+						setHighlightedOperation(leftmostOp.operation);
+						setIsLastInParentheses(leftmostOp.isLastInParentheses);
+						setFullParentheses(leftmostOp.fullParentheses);
 						setTimeout(() => {
-							setShowOperationHighlight(true);
-							const nextOp = getNextOperation(expression);
-							const leftmostOp = getLeftmostOperation(expression, nextOp);
-							setHighlightedOperation(leftmostOp.operation);
-							setIsLastInParentheses(leftmostOp.isLastInParentheses);
-							setFullParentheses(leftmostOp.fullParentheses);
-							// Show continue button after operation highlight
-							setTimeout(() => {
-								setShowContinueButton(true);
-							}, 500);
-						}, 1000);
-					}, 500);
-				}, 400);
+							setShowContinueButton(true);
+						}, 500);
+					}, 1000);
+				}, 500);
 				return;
 			}
 
@@ -763,25 +750,60 @@ const OrderOfOperations = () => {
 				setIsShrinking(false);
 				setDisplayedExpression(expression);
 				setBigAnimKey(prev => prev + 1);
-				// Show instruction after expression appears
 				setTimeout(() => {
-					setShowInstruction(true);
-					// Show operation highlight after instruction appears
+					setShowOperationHighlight(true);
+					const nextOp = getNextOperation(expression);
+					const leftmostOp = getLeftmostOperation(expression, nextOp);
+					setHighlightedOperation(leftmostOp.operation);
+					setIsLastInParentheses(leftmostOp.isLastInParentheses);
+					setFullParentheses(leftmostOp.fullParentheses);
 					setTimeout(() => {
-						setShowOperationHighlight(true);
-						const nextOp = getNextOperation(expression);
-						const leftmostOp = getLeftmostOperation(expression, nextOp);
-						setHighlightedOperation(leftmostOp.operation);
-						setIsLastInParentheses(leftmostOp.isLastInParentheses);
-						setFullParentheses(leftmostOp.fullParentheses);
-						// Show continue button after operation highlight
-						setTimeout(() => {
-							setShowContinueButton(true);
-						}, 500);
-					}, 1000);
-				}, 500);
+						setShowContinueButton(true);
+					}, 500);
+				}, 1000);
 			}, 500);
 		}, 400); // Wait for removal animations to complete
+
+		if (isFirstValidExpression) {
+			// Special sequence for first valid expression
+			setTimeout(() => {
+				setShowPemdasWords(true);
+				// Start animating words one by one
+				const words = ['Parenthesis', 'Exponent', 'Multiplication', 'Division', 'Addition', 'Subtraction'];
+				words.forEach((word, index) => {
+					setTimeout(() => {
+						setAnimatingWords(prev => [...prev, word]);
+						setTimeout(() => {
+							setAnimatingWords(prev => prev.filter(w => w !== word));
+							// After the last word animation, show symbols
+							if (index === words.length - 1) {
+								setTimeout(() => {
+									setShowPemdasWords(false);
+									setShowPemdasSymbols(true);
+									// Start animating symbols one by one
+									const symbols = ['( )', '^', '× ÷', '+ -'];
+									symbols.forEach((symbol, symbolIndex) => {
+										setTimeout(() => {
+											setAnimatingSymbols(prev => [...prev, symbol]);
+											setTimeout(() => {
+												setAnimatingSymbols(prev => prev.filter(s => s !== symbol));
+												// After the last symbol animation, reset everything
+												if (symbolIndex === symbols.length - 1) {
+													setTimeout(() => {
+														setShowPemdasSymbols(false);
+														setIsFirstValidExpression(false);
+													}, 500);
+												}
+											}, 800);
+										}, symbolIndex * 300);
+									});
+								}, 100); // Reduced delay between words and symbols
+							}
+						}, 800);
+					}, index * 300);
+				});
+			}, 400);
+		}
 	};
 
 	const getCurrentPemdasStep = (operation, isLastInParentheses) => {
@@ -835,6 +857,27 @@ const OrderOfOperations = () => {
 			}
 			.grow-in {
 				animation: grow-in 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes move-up {
+				0% { transform: translateY(0); }
+				100% { transform: translateY(-30px); }
+			}
+			.move-up {
+				animation: move-up 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes move-up-higher {
+				0% { transform: translateY(0); }
+				100% { transform: translateY(-50px); }
+			}
+			.move-up-higher {
+				animation: move-up-higher 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes move-button-up {
+				0% { transform: translate(0%, -50%); }
+				100% { transform: translate(0%, -50px); }
+			}
+			.move-button-up {
+				animation: move-button-up 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
 			}
 			@keyframes shrink-out {
 				0% { transform: scale(1); opacity: 1; }
@@ -899,10 +942,12 @@ const OrderOfOperations = () => {
 				height: 8px;
 				border-radius: 50%;
 				background-color: #E5E7EB;
-				transition: background-color 0.3s ease;
+				transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+				transform: scale(1);
 			}
 			.progress-circle.active {
 				background-color: #5750E3;
+				transform: scale(1.2);
 			}
 			.progress-circle.shrink-out {
 				animation: shrink-out 0.4s cubic-bezier(0.4,0,0.2,1) both;
@@ -1009,18 +1054,6 @@ const OrderOfOperations = () => {
 
 					<div className="mt-4 space-y-4">
 						<div className={`w-full min-h-[200px] p-2 bg-white border border-[#5750E3]/30 rounded-md flex justify-center items-center relative`}> 
-							{!showPlaceholder && showInstruction && (
-								<div className={`absolute top-4 left-0 right-0 text-center mx-auto ${currentStep === 1 ? 'max-w-[450px]' : 'max-w-[430px]'}`}>
-									<p className={`text-sm text-gray-600 ${isInstructionFadingOut ? 'fade-out' : 'fade-in'}`}>
-										{getNextOperation(displayedExpression) === null 
-											? "We have successfully simplified using the order of operations!"
-											: currentStep === 1
-												? <>According to PEMDAS, the first operation to do here would be the leftmost <span className="font-bold">{getNextOperation(displayedExpression).type}</span>{getNextOperation(displayedExpression).inParentheses ? " in the leftmost parenthesis" : ""}.</>
-												: <>The next step according to PEMDAS would be the leftmost <span className="font-bold">{getNextOperation(displayedExpression).type}</span>{getNextOperation(displayedExpression).inParentheses ? " in the leftmost parenthesis" : ""}.</>
-										}
-									</p>
-								</div>
-							)}
 							{!showPlaceholder && (
 								<div className="w-full flex flex-col gap-2 items-center justify-end absolute left-0 bottom-0 pb-5">
 									{/* Progress Bar */}
@@ -1110,7 +1143,6 @@ const OrderOfOperations = () => {
 												onClick={() => {
 													// Start the animation sequence
 													setIsContinueButtonShrinking(true);
-													setIsInstructionFadingOut(true);
 													setIsHighlightedOperationShrinking(true);
 													setIsHighlightedOperationGrowing(false);
 													
@@ -1142,39 +1174,32 @@ const OrderOfOperations = () => {
 																
 																setShowContinueButton(false);
 																setIsContinueButtonShrinking(false);
-																setShowInstruction(false);
-																setIsInstructionFadingOut(false);
 																setCurrentStep(prev => prev + 1);
 																setBigAnimKey(prev => prev + 1);
 																
-																// After a brief delay, show the new instruction
-																setTimeout(() => {
-																	setShowInstruction(true);
-																	
-																	// Check if there are more operations to perform
-																	const nextOp = getNextOperation(simplifiedExpr);
-																	if (nextOp === null) {
-																		// No more operations - show completion message
-																		setShowOperationHighlight(false);
-																		setHighlightedOperation(null);
-																	} else {
-																		// Show operation highlight after instruction appears
+																// Check if there are more operations to perform
+																const nextOp = getNextOperation(simplifiedExpr);
+																if (nextOp === null) {
+																	// No more operations - show completion message
+																	setShowOperationHighlight(false);
+																	setHighlightedOperation(null);
+																} else {
+																	// Show operation highlight
+																	setTimeout(() => {
+																		const nextOperation = getLeftmostOperation(simplifiedExpr, nextOp);
+																		setShowOperationHighlight(true);
+																		setHighlightedOperation(nextOperation.operation);
+																		setIsLastInParentheses(nextOperation.isLastInParentheses);
+																		setIsHighlightedOperationVisible(true);
+																		setIsHighlightedOperationGrowing(true);
+																		
+																		// Show continue button after operation highlight
 																		setTimeout(() => {
-																			const nextOperation = getLeftmostOperation(simplifiedExpr, nextOp);
-																			setShowOperationHighlight(true);
-																			setHighlightedOperation(nextOperation.operation);
-																			setIsLastInParentheses(nextOperation.isLastInParentheses);
-																			setIsHighlightedOperationVisible(true);
-																			setIsHighlightedOperationGrowing(true);
-																			
-																			// Show continue button after operation highlight
-																			setTimeout(() => {
-																				setShowContinueButton(true);
-																				setIsHighlightedOperationGrowing(false);
-																			}, 500);
-																		}, 1000);
-																	}
-																}, 500);
+																			setShowContinueButton(true);
+																			setIsHighlightedOperationGrowing(false);
+																		}, 500);
+																	}, 1000);
+																}
 															}, 1000);
 														});
 													}, 600);
@@ -1188,6 +1213,118 @@ const OrderOfOperations = () => {
 								</>
 							)}
 						</div>
+					</div>
+				</div>
+			</div>
+			{/* Temporary Test Area */}
+			<div className="w-[500px] mx-auto mt-5 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05)] bg-white rounded-lg">
+				<div className="p-4">
+					<div className="flex justify-between items-center mb-4">
+						<h2 className="text-[#5750E3] text-sm font-medium">Test Area</h2>
+						<Button 
+							onClick={() => {
+								setIsTestContentShrinking(true);
+								setTimeout(() => {
+									setShowTestContent(false);
+								}, 400);
+							}}
+							className="h-[35px] bg-[#5750E3] hover:bg-[#4a42c7] text-white text-sm px-3 rounded-md select-none touch-manipulation"
+						>
+							Start
+						</Button>
+					</div>
+					<div className="w-full h-[200px] p-2 bg-white border border-[#5750E3]/30 rounded-md flex justify-center items-center relative">
+						{showTestContent && (
+							<p className={`text-gray-500 text-center select-none max-w-[280px] transition-all duration-500 ${isTestContentShrinking ? 'shrink-out' : ''}`}>
+								Test content goes here
+							</p>
+						)}
+						{!showTestContent && (
+							<div className="absolute inset-0">
+								<div className="relative w-full h-full">
+									<div className="absolute left-[173px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0s' }}>
+										<div className="move-up" style={{ animationDelay: '1s' }}>
+											<div className="relative inline-block">
+												<div className="shrink-out" style={{ animationDelay: '2.5s' }}>
+													<span className="text-[#5750E3] font-bold text-2xl">P</span>
+													<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '1.4s' }}>arenthesis</span>
+												</div>
+												<div className="absolute left-[-10%] top-[0%] -translate-x-1/2 -translate-y-1/2 opacity-0 grow-in" style={{ animationDelay: '2.9s' }}>
+													<button className="w-8 h-8 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] font-bold text-lg rounded-md move-button-up" style={{ animationDelay: '3.8s' }}>
+														( )
+													</button>
+												</div>
+											</div>
+										</div>
+									</div>
+									<div className="absolute left-[194px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.1s' }}>
+										<div className="move-up" style={{ animationDelay: '4.3s' }}>
+											<div className="relative inline-block">
+												<div className="shrink-out" style={{ animationDelay: '5.8s' }}>
+													<span className="text-[#5750E3] font-bold text-2xl">E</span>
+													<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '4.7s' }}>xponent</span>
+												</div>
+												<div className="absolute left-[0%] top-[0%] -translate-x-1/2 -translate-y-1/2 opacity-0 grow-in" style={{ animationDelay: '6.2s' }}>
+													<button className="w-8 h-8 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] font-bold text-lg rounded-md move-button-up" style={{ animationDelay: '6.6s' }}>
+														^
+													</button>
+												</div>
+											</div>
+										</div>
+									</div>
+									<div className="absolute left-[214px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.2s' }}>
+										<div className="move-up-higher" style={{ animationDelay: '7.1s' }}>
+											<div className="relative inline-block">
+												<div className="shrink-out" style={{ animationDelay: '8.6s' }}>
+													<span className="text-[#5750E3] font-bold text-2xl">M</span>
+													<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '7.5s' }}>ultiplication</span>
+												</div>
+												<div className="absolute left-[9%] top-[0%] -translate-x-1/2 -translate-y-1/2 opacity-0 grow-in" style={{ animationDelay: '9s' }}>
+													<button className="w-8 h-8 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] font-bold text-lg rounded-md move-up" style={{ animationDelay: '9.4s' }}>
+														×÷
+													</button>
+												</div>
+											</div>
+										</div>
+									</div>
+									<div className="absolute left-[242px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.3s' }}>
+										<div className="move-up" style={{ animationDelay: '7.1s' }}>
+											<div className="relative inline-block">
+												<div className="shrink-out" style={{ animationDelay: '8.6s' }}>
+													<span className="text-[#5750E3] font-bold text-2xl">D</span>
+													<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '7.5s' }}>ivision</span>
+												</div>
+											</div>
+										</div>
+									</div>
+									<div className="absolute left-[264px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.4s' }}>
+										<div className="move-up-higher" style={{ animationDelay: '10.1s' }}>
+											<div className="relative inline-block">
+												<div className="shrink-out" style={{ animationDelay: '11.6s' }}>
+													<span className="text-[#5750E3] font-bold text-2xl">A</span>
+													<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.5s' }}>ddition</span>
+												</div>
+												<div className="absolute left-[0%] top-[0%] -translate-x-1/2 -translate-y-1/2 opacity-0 grow-in" style={{ animationDelay: '12s' }}>
+													<button className="w-8 h-8 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] font-bold text-lg rounded-md move-up" style={{ animationDelay: '12.4s' }}>
+														+-
+													</button>
+												</div>
+											</div>
+										</div>
+									</div>
+									<div className="absolute left-[286px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.5s' }}>
+										<div className="move-up" style={{ animationDelay: '10.1s' }}>
+											<div className="relative inline-block">
+												<div className="shrink-out" style={{ animationDelay: '11.6s' }}>
+													<span className="text-[#5750E3] font-bold text-2xl">S</span>
+													<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.5s' }}>ubtraction</span>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
