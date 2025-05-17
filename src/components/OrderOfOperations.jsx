@@ -42,6 +42,13 @@ const OrderOfOperations = () => {
 	const [animatingSymbols, setAnimatingSymbols] = useState([]);
 	const [isTestContentShrinking, setIsTestContentShrinking] = useState(false);
 	const [showTestContent, setShowTestContent] = useState(true);
+	const [isPemdasAnimationComplete, setIsPemdasAnimationComplete] = useState(false);
+	const [showOperationButtons, setShowOperationButtons] = useState(true);
+	const [isAnimating, setIsAnimating] = useState(false);
+	const [isPemdasAnimating, setIsPemdasAnimating] = useState(false);
+	const [isPemdasButtonsShrinking, setIsPemdasButtonsShrinking] = useState(false);
+	const [isPemdasButtonsGrowing, setIsPemdasButtonsGrowing] = useState(false);
+	const [isFirstValidSimplify, setIsFirstValidSimplify] = useState(true);
 
 	const generateRandomNumber = (min, max) => {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -281,7 +288,7 @@ const OrderOfOperations = () => {
 			const innerExpr = match.slice(1, -1);
 			
 			// Check for exponents in the inner expression
-			if (/([\d\)]+)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(innerExpr)) {
+			if (/(\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(innerExpr)) {
 				return { type: 'exponents', inParentheses: true, expression: match };
 			}
 			
@@ -299,7 +306,7 @@ const OrderOfOperations = () => {
 		}
 		
 		// If no operations in parentheses, check the main expression
-		if (/([\d\)]+)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(formatted)) {
+		if (/(\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(formatted)) {
 			return { type: 'exponents', inParentheses: false, expression: formatted };
 		}
 		
@@ -335,21 +342,9 @@ const OrderOfOperations = () => {
 			}
 			
 			if (match) {
-				// Check if this is the last operation in the parentheses
-				const remainingExpr = innerExpr.replace(match[0], '');
-				const hasMoreOperations = /[+\-×÷^]/.test(remainingExpr);
-				
-				if (!hasMoreOperations) {
-					// If it's the last operation, return the full parenthesized expression
-					return {
-						operation: operation.expression,
-						isLastInParentheses: true
-					};
-				}
-				
 				return {
 					operation: match[0],
-					isLastInParentheses: false
+					isLastInParentheses: true  // Always true when inside parentheses
 				};
 			}
 		} else {
@@ -643,6 +638,12 @@ const OrderOfOperations = () => {
 		setHighlightedOperationRef(null);
 		setIsLastInParentheses(false);
 		setFullParentheses(null);
+		setIsPemdasAnimationComplete(false);
+
+		// If it's not the first time, trigger the PEMDAS buttons animation
+		if (!isFirstValidSimplify) {
+			setIsPemdasButtonsShrinking(true);
+		}
 
 		// Wait for animations to complete before resetting
 		setTimeout(() => {
@@ -708,102 +709,124 @@ const OrderOfOperations = () => {
 			}
 
 			// Start the animation sequence
-			setIsProgressShrinking(true);
-			setShowOperationHighlight(false);
-			setShowContinueButton(false);
-			setIsContinueButtonShrinking(false);
-			setHighlightedOperation(null);
-			setTimeout(() => {
-				setTotalSteps(calculateTotalSteps(expression));
-				setCurrentStep(1);
-				setIsProgressShrinking(false);
-				setIsProgressGrowing(true);
-				setTimeout(() => {
-					setIsProgressGrowing(false);
-				}, 400);
-			}, 400);
-
-			if (!showPlaceholder) {
-				setIsShrinking(true);
-				setTimeout(() => {
-					setDisplayedExpression(expression);
-					setIsShrinking(false);
-					setBigAnimKey(prev => prev + 1);
-					setTimeout(() => {
-						setShowOperationHighlight(true);
-						const nextOp = getNextOperation(displayedExpression);
-						const leftmostOp = getLeftmostOperation(displayedExpression, nextOp);
-						setHighlightedOperation(leftmostOp.operation);
-						setIsLastInParentheses(leftmostOp.isLastInParentheses);
-						setFullParentheses(leftmostOp.fullParentheses);
-						setTimeout(() => {
-							setShowContinueButton(true);
-						}, 500);
-					}, 1000);
-				}, 500);
-				return;
-			}
-
+			setIsAnimating(true);
+			setIsPemdasAnimating(true);
 			setIsShrinking(true);
+			
+			// First hide the placeholder text
 			setTimeout(() => {
 				setShowPlaceholder(false);
 				setIsShrinking(false);
-				setDisplayedExpression(expression);
-				setBigAnimKey(prev => prev + 1);
-				setTimeout(() => {
-					setShowOperationHighlight(true);
-					const nextOp = getNextOperation(expression);
-					const leftmostOp = getLeftmostOperation(expression, nextOp);
-					setHighlightedOperation(leftmostOp.operation);
-					setIsLastInParentheses(leftmostOp.isLastInParentheses);
-					setFullParentheses(leftmostOp.fullParentheses);
-					setTimeout(() => {
-						setShowContinueButton(true);
-					}, 500);
-				}, 1000);
-			}, 500);
-		}, 400); // Wait for removal animations to complete
 
-		if (isFirstValidExpression) {
-			// Special sequence for first valid expression
-			setTimeout(() => {
-				setShowPemdasWords(true);
-				// Start animating words one by one
-				const words = ['Parenthesis', 'Exponent', 'Multiplication', 'Division', 'Addition', 'Subtraction'];
-				words.forEach((word, index) => {
-					setTimeout(() => {
-						setAnimatingWords(prev => [...prev, word]);
+				if (isFirstValidSimplify) {
+					// Only run PEMDAS animation on first time
+					setShowPemdasWords(true);
+					const words = ['Parenthesis', 'Exponent', 'Multiplication', 'Division', 'Addition', 'Subtraction'];
+					
+					words.forEach((word, index) => {
 						setTimeout(() => {
-							setAnimatingWords(prev => prev.filter(w => w !== word));
-							// After the last word animation, show symbols
-							if (index === words.length - 1) {
-								setTimeout(() => {
-									setShowPemdasWords(false);
-									setShowPemdasSymbols(true);
-									// Start animating symbols one by one
-									const symbols = ['( )', '^', '× ÷', '+ -'];
-									symbols.forEach((symbol, symbolIndex) => {
-										setTimeout(() => {
-											setAnimatingSymbols(prev => [...prev, symbol]);
+							setAnimatingWords(prev => [...prev, word]);
+							setTimeout(() => {
+								setAnimatingWords(prev => prev.filter(w => w !== word));
+								
+								// After the last word animation, show symbols
+								if (index === words.length - 1) {
+									setTimeout(() => {
+										setShowPemdasWords(false);
+										setShowPemdasSymbols(true);
+										
+										// Start animating symbols one by one
+										const symbols = ['( )', '^', '× ÷', '+ -'];
+										symbols.forEach((symbol, symbolIndex) => {
 											setTimeout(() => {
-												setAnimatingSymbols(prev => prev.filter(s => s !== symbol));
-												// After the last symbol animation, reset everything
-												if (symbolIndex === symbols.length - 1) {
-													setTimeout(() => {
-														setShowPemdasSymbols(false);
-														setIsFirstValidExpression(false);
-													}, 500);
-												}
-											}, 800);
-										}, symbolIndex * 300);
-									});
-								}, 100); // Reduced delay between words and symbols
-							}
-						}, 800);
-					}, index * 300);
-				});
-			}, 400);
-		}
+												setAnimatingSymbols(prev => [...prev, symbol]);
+												setTimeout(() => {
+													setAnimatingSymbols(prev => prev.filter(s => s !== symbol));
+													
+													// After the last symbol animation, show the interactive elements
+													if (symbolIndex === symbols.length - 1) {
+														setTimeout(() => {
+															setShowPemdasSymbols(false);
+															setIsFirstValidSimplify(false);
+															
+															// Wait for all button animations to complete (6500ms)
+															setTimeout(() => {
+																setIsPemdasAnimating(false);
+																setIsPemdasAnimationComplete(true);
+																setIsAnimating(false);
+																
+																// Show the expression and interactive elements
+																setDisplayedExpression(expression);
+																setBigAnimKey(prev => prev + 1);
+																setTotalSteps(calculateTotalSteps(expression));
+																setCurrentStep(1);
+																setIsProgressGrowing(true);
+																// Don't grow in buttons for first simplify
+																setShowOperationButtons(true);
+																
+																setTimeout(() => {
+																	setIsProgressGrowing(false);
+																	setShowOperationHighlight(true);
+																	const nextOp = getNextOperation(expression);
+																	const leftmostOp = getLeftmostOperation(expression, nextOp);
+																	setHighlightedOperation(leftmostOp.operation);
+																	setIsLastInParentheses(leftmostOp.isLastInParentheses);
+																	setFullParentheses(leftmostOp.fullParentheses);
+																	
+																	setTimeout(() => {
+																		setShowContinueButton(true);
+																		setIsAnimating(false);
+																	}, 500);
+																}, 1000);
+															}, 6500); // Wait for all button animations to complete
+														}, 500);
+													}
+												}, 800);
+											}, symbolIndex * 300);
+										});
+									}, 100);
+								}
+							}, 800);
+						}, index * 300);
+					});
+				} else {
+					// For subsequent simplifications, show the expression immediately
+					setIsPemdasAnimating(false);
+					setIsPemdasAnimationComplete(true);
+					setIsAnimating(false);
+					setShowOperationButtons(true); // Make sure buttons are visible
+					
+					// Show the expression and interactive elements immediately
+					setDisplayedExpression(expression);
+					setBigAnimKey(prev => prev + 1);
+					setTotalSteps(calculateTotalSteps(expression));
+					setCurrentStep(1);
+					setIsProgressGrowing(true);
+					setIsPemdasButtonsGrowing(true);
+					
+					// Reset the shrinking state after a short delay
+					setTimeout(() => {
+						setIsPemdasButtonsShrinking(false);
+					}, 400);
+					
+					setTimeout(() => {
+						setIsProgressGrowing(false);
+						setShowOperationHighlight(true);
+						const nextOp = getNextOperation(expression);
+						const leftmostOp = getLeftmostOperation(expression, nextOp);
+						setHighlightedOperation(leftmostOp.operation);
+						setIsLastInParentheses(leftmostOp.isLastInParentheses);
+						setFullParentheses(leftmostOp.fullParentheses);
+						
+						setTimeout(() => {
+							setShowContinueButton(true);
+							setIsAnimating(false);
+							setIsPemdasButtonsGrowing(false);
+						}, 500);
+					}, 1000);
+				}
+			}, 500);
+		}, 400);
 	};
 
 	const getCurrentPemdasStep = (operation, isLastInParentheses) => {
@@ -860,24 +883,59 @@ const OrderOfOperations = () => {
 			}
 			@keyframes move-up {
 				0% { transform: translateY(0); }
-				100% { transform: translateY(-30px); }
+				100% { transform: translateY(-38px); }
 			}
 			.move-up {
 				animation: move-up 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
 			}
 			@keyframes move-up-higher {
 				0% { transform: translateY(0); }
-				100% { transform: translateY(-50px); }
+				100% { transform: translateY(-58px); }
 			}
 			.move-up-higher {
 				animation: move-up-higher 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
 			}
-			@keyframes move-button-up {
-				0% { transform: translate(0%, -50%); }
-				100% { transform: translate(0%, -50px); }
+			@keyframes move-parenthesis-button {
+				0% { transform: translate(0%, 0%); }
+				100% { transform: translate(-180%, -50px); }
 			}
-			.move-button-up {
-				animation: move-button-up 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			.move-parenthesis-button {
+				animation: move-parenthesis-button 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes move-exponent {
+				0% { transform: translate(0%, 0%); }
+				100% { transform: translate(-10%, -50px); }
+			}
+			.move-exponent {
+				animation: move-exponent 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes move-multiply-divide-button {
+				0% { transform: translate(0%, 0%); }
+				100% { transform: translate(50%, -50px); }
+			}
+			.move-multiply-divide-button {
+				animation: move-multiply-divide-button 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes move-addition {
+				0% { transform: translate(0, 0); }
+				100% { transform: translate(-80%, -50px); }
+			}
+			.move-addition {
+				animation: move-addition 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes move-subtraction {
+				0% { transform: translate(0, 0); }
+				100% { transform: translate(-90%, -30px); }
+			}
+			.move-subtraction {
+				animation: move-subtraction 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes move-add-subtract-button {
+				0% { transform: translate(0%, 0%); }
+				100% { transform: translate(147%, -50px); }
+			}
+			.move-add-subtract-button {
+				animation: move-add-subtract-button 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
 			}
 			@keyframes shrink-out {
 				0% { transform: scale(1); opacity: 1; }
@@ -1021,6 +1079,52 @@ const OrderOfOperations = () => {
 				transform: scale(1);
 				opacity: 1;
 			}
+			@keyframes move-down {
+				0% { transform: translateY(0); }
+				100% { transform: translateY(20px); }
+			}
+			.move-down {
+				animation: move-down 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes move-up-after-down {
+				0% { transform: translateY(0); }
+				100% { transform: translateY(-50px); }
+			}
+			.move-up-after-down {
+				animation: move-up-after-down 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes move-exponent-button {
+				0% { transform: translate(0%, 0%); }
+				100% { transform: translate(-75%, -50px); }
+			}
+			.move-exponent-button {
+				animation: move-exponent-button 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+			@keyframes move-multiplication {
+				0% { transform: translate(0, 0); }
+				100% { transform: translate(-35%, -50px); }
+			}
+			.move-multiplication {
+				animation: move-multiplication 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+
+			@keyframes move-division {
+				0% { transform: translate(0, 0); }
+				100% { transform: translate(-55%, -30px); }
+			}
+			.move-division {
+				animation: move-division 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
+
+			/* Add new styles for operation button highlights */
+			.operation-button {
+				transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+			}
+			.operation-button.active {
+				background-color: #CDCAF7 !important;
+				border-color: #5750E3 !important;
+				color: #5750E3 !important;
+			}
 			`}</style>
 			<div className="w-[500px] mx-auto mt-5 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05)] bg-white rounded-lg select-none">
 				<div className="p-4">
@@ -1054,7 +1158,7 @@ const OrderOfOperations = () => {
 
 					<div className="mt-4 space-y-4">
 						<div className={`w-full min-h-[200px] p-2 bg-white border border-[#5750E3]/30 rounded-md flex justify-center items-center relative`}> 
-							{!showPlaceholder && (
+							{!showPlaceholder && !isPemdasAnimating && isPemdasAnimationComplete && (
 								<div className="w-full flex flex-col gap-2 items-center justify-end absolute left-0 bottom-0 pb-5">
 									{/* Progress Bar */}
 									{totalSteps > 0 && (
@@ -1138,7 +1242,7 @@ const OrderOfOperations = () => {
 										</span>
 									</p>
 									{showContinueButton && (
-										<div className="absolute bottom-3 right-3">
+										<div className="absolute bottom-3 right-3 z-50">
 											<Button 
 												onClick={() => {
 													// Start the animation sequence
@@ -1210,121 +1314,87 @@ const OrderOfOperations = () => {
 											</Button>
 										</div>
 									)}
+									{showOperationButtons && (
+										<div className={`absolute inset-0 ${isPemdasButtonsShrinking ? 'shrink-out' : isPemdasButtonsGrowing ? 'grow-in' : ''}`}>
+											<div className="relative w-full h-full">
+												<div className="absolute left-[173px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0s' }}>
+													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
+														<div className="move-up-after-down" style={{ animationDelay: '1.8s' }}>
+															<div className="shrink-out" style={{ animationDelay: '3.5s' }}>
+																<span className="text-[#5750E3] font-bold text-2xl">P</span>
+																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '2.6s' }}>arenthesis</span>
+															</div>
+															<div className="absolute left-[35%] top-0 opacity-0 grow-in" style={{ animationDelay: '3.8s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] rounded-md border border-[#5750E3]/30 text-lg font-medium move-parenthesis-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).inParentheses ? 'active' : ''}`} style={{ animationDelay: '4.2s' }}>( )</button>
+															</div>
+														</div>
+													</div>
+												</div>
+												<div className="absolute left-[194px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.1s' }}>
+													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
+														<div className="move-exponent" style={{ animationDelay: '4.6s' }}>
+															<div className="shrink-out" style={{ animationDelay: '5.4s' }}>
+																<span className="text-[#5750E3] font-bold text-2xl">E</span>
+																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '5.0s' }}>xponent</span>
+															</div>
+															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '5.8s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] rounded-md border border-[#5750E3]/30 text-lg font-medium move-exponent-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '^' ? 'active' : ''}`} style={{ animationDelay: '6.2s' }}>^</button>
+															</div>
+														</div>
+													</div>
+												</div>
+												<div className="absolute left-[214px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.2s' }}>
+													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
+														<div className="move-multiplication" style={{ animationDelay: '6.6s' }}>
+															<div className="shrink-out" style={{ animationDelay: '7.4s' }}>
+																<span className="text-[#5750E3] font-bold text-2xl">M</span>
+																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '7.0s' }}>ultiplication</span>
+															</div>
+															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '7.8s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] rounded-md border border-[#5750E3]/30 text-lg font-medium move-multiply-divide-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '×÷' ? 'active' : ''}`} style={{ animationDelay: '8.2s' }}>×÷</button>
+															</div>
+														</div>
+													</div>
+												</div>
+												<div className="absolute left-[242px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.3s' }}>
+													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
+														<div className="move-division" style={{ animationDelay: '6.6s' }}>
+															<div className="shrink-out" style={{ animationDelay: '7.4s' }}>
+																<span className="text-[#5750E3] font-bold text-2xl">D</span>
+																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '7.0s' }}>ivision</span>
+															</div>
+														</div>
+													</div>
+												</div>
+												<div className="absolute left-[264px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.4s' }}>
+													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
+														<div className="move-addition" style={{ animationDelay: '8.6s' }}>
+															<div className="shrink-out" style={{ animationDelay: '9.4s' }}>
+																<span className="text-[#5750E3] font-bold text-2xl">A</span>
+																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '9.0s' }}>ddition</span>
+															</div>
+															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '9.8s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] rounded-md border border-[#5750E3]/30 text-lg font-medium move-add-subtract-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '+-' ? 'active' : ''}`} style={{ animationDelay: '10.2s' }}>+-</button>
+															</div>
+														</div>
+													</div>
+												</div>
+												<div className="absolute left-[286px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.5s' }}>
+													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
+														<div className="move-subtraction" style={{ animationDelay: '8.6s' }}>
+															<div className="shrink-out" style={{ animationDelay: '9.4s' }}>
+																<span className="text-[#5750E3] font-bold text-2xl">S</span>
+																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '9.0s' }}>ubtraction</span>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+									)}
 								</>
 							)}
 						</div>
-					</div>
-				</div>
-			</div>
-			{/* Temporary Test Area */}
-			<div className="w-[500px] mx-auto mt-5 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05)] bg-white rounded-lg">
-				<div className="p-4">
-					<div className="flex justify-between items-center mb-4">
-						<h2 className="text-[#5750E3] text-sm font-medium">Test Area</h2>
-						<Button 
-							onClick={() => {
-								setIsTestContentShrinking(true);
-								setTimeout(() => {
-									setShowTestContent(false);
-								}, 400);
-							}}
-							className="h-[35px] bg-[#5750E3] hover:bg-[#4a42c7] text-white text-sm px-3 rounded-md select-none touch-manipulation"
-						>
-							Start
-						</Button>
-					</div>
-					<div className="w-full h-[200px] p-2 bg-white border border-[#5750E3]/30 rounded-md flex justify-center items-center relative">
-						{showTestContent && (
-							<p className={`text-gray-500 text-center select-none max-w-[280px] transition-all duration-500 ${isTestContentShrinking ? 'shrink-out' : ''}`}>
-								Test content goes here
-							</p>
-						)}
-						{!showTestContent && (
-							<div className="absolute inset-0">
-								<div className="relative w-full h-full">
-									<div className="absolute left-[173px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0s' }}>
-										<div className="move-up" style={{ animationDelay: '1s' }}>
-											<div className="relative inline-block">
-												<div className="shrink-out" style={{ animationDelay: '2.5s' }}>
-													<span className="text-[#5750E3] font-bold text-2xl">P</span>
-													<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '1.4s' }}>arenthesis</span>
-												</div>
-												<div className="absolute left-[-10%] top-[0%] -translate-x-1/2 -translate-y-1/2 opacity-0 grow-in" style={{ animationDelay: '2.9s' }}>
-													<button className="w-8 h-8 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] font-bold text-lg rounded-md move-button-up" style={{ animationDelay: '3.8s' }}>
-														( )
-													</button>
-												</div>
-											</div>
-										</div>
-									</div>
-									<div className="absolute left-[194px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.1s' }}>
-										<div className="move-up" style={{ animationDelay: '4.3s' }}>
-											<div className="relative inline-block">
-												<div className="shrink-out" style={{ animationDelay: '5.8s' }}>
-													<span className="text-[#5750E3] font-bold text-2xl">E</span>
-													<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '4.7s' }}>xponent</span>
-												</div>
-												<div className="absolute left-[0%] top-[0%] -translate-x-1/2 -translate-y-1/2 opacity-0 grow-in" style={{ animationDelay: '6.2s' }}>
-													<button className="w-8 h-8 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] font-bold text-lg rounded-md move-button-up" style={{ animationDelay: '6.6s' }}>
-														^
-													</button>
-												</div>
-											</div>
-										</div>
-									</div>
-									<div className="absolute left-[214px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.2s' }}>
-										<div className="move-up-higher" style={{ animationDelay: '7.1s' }}>
-											<div className="relative inline-block">
-												<div className="shrink-out" style={{ animationDelay: '8.6s' }}>
-													<span className="text-[#5750E3] font-bold text-2xl">M</span>
-													<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '7.5s' }}>ultiplication</span>
-												</div>
-												<div className="absolute left-[9%] top-[0%] -translate-x-1/2 -translate-y-1/2 opacity-0 grow-in" style={{ animationDelay: '9s' }}>
-													<button className="w-8 h-8 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] font-bold text-lg rounded-md move-up" style={{ animationDelay: '9.4s' }}>
-														×÷
-													</button>
-												</div>
-											</div>
-										</div>
-									</div>
-									<div className="absolute left-[242px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.3s' }}>
-										<div className="move-up" style={{ animationDelay: '7.1s' }}>
-											<div className="relative inline-block">
-												<div className="shrink-out" style={{ animationDelay: '8.6s' }}>
-													<span className="text-[#5750E3] font-bold text-2xl">D</span>
-													<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '7.5s' }}>ivision</span>
-												</div>
-											</div>
-										</div>
-									</div>
-									<div className="absolute left-[264px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.4s' }}>
-										<div className="move-up-higher" style={{ animationDelay: '10.1s' }}>
-											<div className="relative inline-block">
-												<div className="shrink-out" style={{ animationDelay: '11.6s' }}>
-													<span className="text-[#5750E3] font-bold text-2xl">A</span>
-													<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.5s' }}>ddition</span>
-												</div>
-												<div className="absolute left-[0%] top-[0%] -translate-x-1/2 -translate-y-1/2 opacity-0 grow-in" style={{ animationDelay: '12s' }}>
-													<button className="w-8 h-8 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] font-bold text-lg rounded-md move-up" style={{ animationDelay: '12.4s' }}>
-														+-
-													</button>
-												</div>
-											</div>
-										</div>
-									</div>
-									<div className="absolute left-[286px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.5s' }}>
-										<div className="move-up" style={{ animationDelay: '10.1s' }}>
-											<div className="relative inline-block">
-												<div className="shrink-out" style={{ animationDelay: '11.6s' }}>
-													<span className="text-[#5750E3] font-bold text-2xl">S</span>
-													<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.5s' }}>ubtraction</span>
-												</div>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-						)}
 					</div>
 				</div>
 			</div>
