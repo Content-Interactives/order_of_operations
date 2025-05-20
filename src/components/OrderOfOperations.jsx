@@ -119,113 +119,42 @@ const OrderOfOperations = () => {
 			setIsHighlightedOperationShrinking(false);
 			setIsHighlightedOperationVisible(false);
 
-			requestAnimationFrame(() => {
-				setIsSimplifying(true);
+			// Update expression and states immediately
+			setDisplayedExpression(simplifiedExpr);
+			setExpressionHistory(prev => [...prev, simplifiedExpr]);
+			setCurrentHistoryIndex(prev => prev + 1);
+			setIsSimplifying(false);
+			setCurrentOperationResult(null);
+			setShowContinueButton(false);
+			setIsContinueButtonShrinking(false);
+			setCurrentStep(prev => prev + 1);
+			setBigAnimKey(prev => prev + 1);
 
+			// Check if expression is fully solved
+			const nextOp = getNextOperation(simplifiedExpr);
+			const isSingleNumber = /^-?\d+(\.\d+)?$/.test(simplifiedExpr.replace(/\s+/g, ''));
+			
+			if (nextOp === null && isSingleNumber) {
+				setShowOperationHighlight(false);
+				setHighlightedOperation(null);
+				setIsFullySolved(true);
+				setIsSolved(true);
+			} else {
+				// Set up next operation
+				const nextOperation = getLeftmostOperation(simplifiedExpr, nextOp);
+				setShowOperationHighlight(true);
+				setHighlightedOperation(nextOperation.operation);
+				setIsLastInParentheses(nextOperation.isLastInParentheses);
+				setIsHighlightedOperationVisible(true);
+				setIsHighlightedOperationGrowing(true);
+				
 				setTimeout(() => {
-					const opElement = opWidthRef.current;
-					if (opElement) {
-						// Get current widths
-						const opWidth = opElement.offsetWidth;
-						const wrapper = opElement.closest('.expression-wrapper');
-						const wrapperWidth = wrapper.offsetWidth;
-
-						// Create temp span to measure result width
-						const tempSpan = document.createElement('span');
-						tempSpan.style.visibility = 'hidden';
-							tempSpan.style.position = 'absolute';
-							tempSpan.style.whiteSpace = 'nowrap';
-							tempSpan.style.font = window.getComputedStyle(opElement).font;
-							tempSpan.style.fontWeight = window.getComputedStyle(opElement).fontWeight;
-							tempSpan.style.fontSize = window.getComputedStyle(opElement).fontSize;
-							tempSpan.innerText = operationResult;
-							document.body.appendChild(tempSpan);
-							const resultWidth = tempSpan.offsetWidth;
-							document.body.removeChild(tempSpan);
-
-							// Set up width transitions
-							setOpCurrentWidth(opWidth);
-							setOpTargetWidth(resultWidth);
-							setCurrentWidth(wrapperWidth);
-							
-							// Calculate new wrapper width
-							const widthDiff = resultWidth - opWidth;
-							const newWrapperWidth = wrapperWidth + widthDiff;
-							setTargetWidth(newWrapperWidth);
-
-							// Start transitions
-							setIsOpWidthTransitioning(true);
-							setIsWidthTransitioning(true);
-
-							// After a small delay to ensure transitions start
-							setTimeout(() => {
-								setOpCurrentWidth(resultWidth);
-								setCurrentWidth(newWrapperWidth);
-
-								// After transitions complete
-								setTimeout(() => {
-									// Reset transition states
-									setIsOpWidthTransitioning(false);
-									setIsWidthTransitioning(false);
-									setOpCurrentWidth(null);
-									setOpTargetWidth(null);
-									setCurrentWidth(null);
-									setTargetWidth(null);
-
-									// Update expression and states
-									setDisplayedExpression(simplifiedExpr);
-									setExpressionHistory(prev => [...prev, simplifiedExpr]);
-									setCurrentHistoryIndex(prev => prev + 1);
-									setIsSimplifying(false);
-									setCurrentOperationResult(null);
-									setShowContinueButton(false);
-									setIsContinueButtonShrinking(false);
-									setCurrentStep(prev => prev + 1);
-									setBigAnimKey(prev => prev + 1);
-
-									// Check if expression is fully solved
-									const nextOp = getNextOperation(simplifiedExpr);
-									const isSingleNumber = /^-?\d+(\.\d+)?$/.test(simplifiedExpr.replace(/\s+/g, ''));
-									
-									if (nextOp === null && isSingleNumber) {
-										setShowOperationHighlight(false);
-										setHighlightedOperation(null);
-										setIsFullySolved(true);
-										setIsSolved(true);
-									} else {
-										// Set up next operation
-										setTimeout(() => {
-											const nextOperation = getLeftmostOperation(simplifiedExpr, nextOp);
-											setShowOperationHighlight(true);
-											setHighlightedOperation(nextOperation.operation);
-											setIsLastInParentheses(nextOperation.isLastInParentheses);
-											setIsHighlightedOperationVisible(true);
-											setIsHighlightedOperationGrowing(true);
-											
-											setTimeout(() => {
-												setShowContinueButton(true);
-												setIsHighlightedOperationGrowing(false);
-											}, 500);
-										}, 1000);
-									}
-								}, 500); // Transition duration
-							}, 20); // Small delay to start transitions
-						} else {
-							// Fallback for when element is not found
-							setDisplayedExpression(simplifiedExpr);
-							setExpressionHistory(prev => [...prev, simplifiedExpr]);
-							setCurrentHistoryIndex(prev => prev + 1);
-							setIsSimplifying(false);
-							setCurrentOperationResult(null);
-							setShowContinueButton(false);
-							setIsContinueButtonShrinking(false);
-							setCurrentStep(prev => prev + 1);
-							setBigAnimKey(prev => prev + 1);
-						}
-					}, 1000);
-				});
-			}, 600);
-		};
+					setShowContinueButton(true);
+					setIsHighlightedOperationGrowing(false);
+				}, 500);
+			}
+		}, 400); // Reduced from 600ms to 400ms to make the animation more responsive
+	};
 
 	const generateRandomNumber = (min, max) => {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -271,8 +200,8 @@ const OrderOfOperations = () => {
 	const handleRandomExpression = () => {
 		setExpression(generateRandomExpression());
 		// Reset continue button state
-		setShowContinueButton(false);
-		setIsContinueButtonShrinking(false);
+		// setShowContinueButton(false);
+		// setIsContinueButtonShrinking(false);
 	};
 
 	const handleExpressionChange = (e) => {
@@ -405,12 +334,22 @@ const OrderOfOperations = () => {
 			});
 		}
 		
-		// Add spaces around operators, but not around parentheses, superscripts, or decimal points
+		// Handle spacing around operators with more space
 		formatted = formatted
-			.replace(/(\d+(?:\.\d+)?)([+\-×÷])/g, '$1 $2') // Space after number before operator
-			.replace(/([+\-×÷])(\d+(?:\.\d+)?)/g, '$1 $2') // Space after operator before number
-			.replace(/\s*\(\s*/g, '(') // Remove spaces around opening parenthesis
-			.replace(/\s*\)\s*/g, ')') // Remove spaces around closing parenthesis
+			.replace(/(\d+(?:\.\d+)?)([+\-×÷])/g, '$1 $2 ') // Space after number before operator
+			.replace(/([+\-×÷])(\d+(?:\.\d+)?)/g, '$1 $2'); // Space after operator before number
+		
+		// Handle parentheses with consistent spacing
+		formatted = formatted
+			.replace(/\(/g, '(')  // Add space after opening parenthesis
+			.replace(/\)/g, ')')  // Add space before closing parenthesis
+			.replace(/([+\-×÷])\s*\(/g, '$1 (') // Space before opening parenthesis
+			.replace(/\)\s*([+\-×÷])/g, ') $1') // Space after closing parenthesis
+			.replace(/(\d+)\s*\(/g, '$1 (') // Space before opening parenthesis after number
+			.replace(/\)\s*(\d+)/g, ') $1'); // Space after closing parenthesis before number
+		
+		// Clean up any multiple spaces
+		formatted = formatted
 			.replace(/\s+/g, ' ') // Replace multiple spaces with single space
 			.trim(); // Remove leading/trailing spaces
 		
@@ -1135,10 +1074,12 @@ const OrderOfOperations = () => {
 			<style>{`
 			@keyframes grow-in {
 				0% { transform: scale(0.7); opacity: 0; }
+				50% { transform: scale(1.1); opacity: 0.8; }
+				75% { transform: scale(0.95); opacity: 0.9; }
 				100% { transform: scale(1); opacity: 1; }
 			}
 			.grow-in {
-				animation: grow-in 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+				animation: grow-in 0.5s cubic-bezier(0.4,0,0.2,1) forwards;
 			}
 			@keyframes move-up {
 				0% { transform: translateY(0); }
@@ -1456,6 +1397,15 @@ const OrderOfOperations = () => {
 			.simplified-grow-in.fade-out {
 				opacity: 0;
 			}
+			@keyframes bounce-then-shrink {
+				0% { transform: scale(1); opacity: 1; }
+				50% { transform: scale(1.1); opacity: 1; }
+				100% { transform: scale(0.8); opacity: 0; }
+			}
+
+			.shrinking {
+				animation: bounce-then-shrink 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+			}
 			`}</style>
 			<div className="w-[500px] mx-auto mt-5 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05)] bg-white rounded-lg select-none">
 				<div className="p-4">
@@ -1490,38 +1440,34 @@ const OrderOfOperations = () => {
 					<div className="mt-4 space-y-4">
 						<div className={`w-full min-h-[200px] p-2 bg-white border border-[#5750E3]/30 rounded-md flex justify-center items-center relative`}> 
 							{!showPlaceholder && !isPemdasAnimating && isPemdasAnimationComplete && (
-								<div className="w-full flex flex-col gap-2 items-center justify-end absolute left-0 bottom-0 pb-5">
+								<div className="w-full flex flex-col gap-2 items-center justify-end absolute left-0 bottom-0 pb-3">
 									{/* Progress Bar with Navigation */}
 									{totalSteps > 0 && (
 										<div className="flex items-center gap-4 relative z-50">
-											{isSolved && (
-												<button
-													onClick={() => handleNavigateHistory('back')}
-													className="nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#5750E3]/10 text-[#5750E3] hover:bg-[#5750E3]/20 transition-all duration-200 relative z-50"
-												>
-													<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-														<path d="M15 18l-6-6 6-6"/>
-													</svg>
-												</button>
-											)}
+											<button
+												onClick={() => handleNavigateHistory('back')}
+												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#5750E3]/10 text-[#5750E3] hover:bg-[#5750E3]/20 transition-all duration-200 relative z-50 ${!isSolved ? 'invisible pointer-events-none' : isBigShrinking ? 'shrink-out' : 'grow-in'}`}
+											>
+												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+													<path d="M15 18l-6-6 6-6"/>
+												</svg>
+											</button>
 											<div className="flex gap-2">
-												{[...Array(totalSteps + (isSolved ? 1 : 0))].map((_, index) => (
+												{[...Array(totalSteps + 1)].map((_, index) => (
 													<div
 														key={`${bigAnimKey}-${index}`}
-														className={`progress-circle ${index + 1 <= currentStep ? 'active' : ''} ${isProgressShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
+														className={`progress-circle ${index + 1 <= currentStep ? 'active' : ''} ${isProgressShrinking || isBigShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
 													/>
 												))}
 											</div>
-											{isSolved && (
-												<button
-													onClick={() => handleNavigateHistory('forward')}
-													className="nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#5750E3]/10 text-[#5750E3] hover:bg-[#5750E3]/20 transition-all duration-200 relative z-50"
-												>
-													<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-														<path d="M9 18l6-6-6-6"/>
-													</svg>
-												</button>
-											)}
+											<button
+												onClick={() => handleNavigateHistory('forward')}
+												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#5750E3]/10 text-[#5750E3] hover:bg-[#5750E3]/20 transition-all duration-200 relative z-50 ${!isSolved ? 'invisible pointer-events-none' : isBigShrinking ? 'shrink-out' : 'grow-in'}`}
+											>
+												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+													<path d="M9 18l6-6-6-6"/>
+												</svg>
+											</button>
 										</div>
 									)}
 								</div>
@@ -1545,35 +1491,59 @@ const OrderOfOperations = () => {
 												transform: 'translateX(-50%)',
 												whiteSpace: 'nowrap',
 												display: 'inline-block',
-												transition: isWidthTransitioning ? 'width 0.5s cubic-bezier(0.4,0,0.2,1)' : 'none',
-												width: isWidthTransitioning && currentWidth !== null ? `${currentWidth}px` : 'auto',
+												width: 'auto',
 												top: '50%',
 												transform: 'translate(-50%, -50%)'
 											}}
 										>
 											<span
-												className="expression-content"
+												className={`expression-content ${isHighlightedOperationShrinking ? 'shrinking' : ''} ${bigAnimKey > 0 ? 'grow-in' : ''}`}
 												ref={expressionContentRef}
 												style={{
 													whiteSpace: 'nowrap',
 													display: 'inline-block',
-													transition: isWidthTransitioning ? 'width 0.5s cubic-bezier(0.4,0,0.2,1)' : 'none',
-													width: isWidthTransitioning && currentWidth !== null ? `${currentWidth}px` : 'auto',
 													verticalAlign: 'middle',
 													lineHeight: '1',
-													position: 'relative'
+													position: 'relative',
+													letterSpacing: '0.05em',
+													transformOrigin: 'center'
 												}}
 											>
 												{(() => {
 													const parts = formatExpression(displayedExpression).split(highlightedOperation || '');
 													const result = [];
 													for (let i = 0; i < parts.length; i++) {
+														// Split the part into numbers and non-numbers to handle spacing differently
+														const partContent = parts[i].split(/([+\-×÷()])/).filter(Boolean);
 														result.push(
-															<span key={`part-${i}`} style={{ display: 'inline-block', verticalAlign: 'middle', lineHeight: '1' }}>
-																{parts[i]}
+															<span 
+																key={`part-${i}`} 
+																style={{ 
+																	display: 'inline-block', 
+																	verticalAlign: 'middle', 
+																	lineHeight: '1',
+																	transformOrigin: 'center'
+																	}}
+															>
+																{partContent.map((content, j) => (
+																	<span
+																		key={`content-${j}`}
+																		style={{
+																			display: 'inline-block',
+																			verticalAlign: 'middle',
+																			lineHeight: '1',
+																			padding: /[+\-×÷()]/.test(content) ? '0 0.2em' : '0 0.05em',
+																			transformOrigin: 'center'
+																		}}
+																	>
+																		{content}
+																	</span>
+																))}
 															</span>
 														);
 														if (i < parts.length - 1 && highlightedOperation) {
+															// Split the highlighted operation into its parts to maintain consistent spacing
+															const highlightedParts = highlightedOperation.split(/([+\-×÷()])/).filter(Boolean);
 															result.push(
 																<span
 																	key={"highlighted-op"}
@@ -1583,11 +1553,7 @@ const OrderOfOperations = () => {
 																	}`}
 																	style={{
 																		visibility: isHighlightedOperationVisible ? 'visible' : 'hidden',
-																		display: isOpWidthTransitioning && opCurrentWidth !== null ? 'inline-block' : 'inline',
-																		transition: isOpWidthTransitioning ? 'width 0.5s cubic-bezier(0.4,0,0.2,1)' : undefined,
-																		width: isOpWidthTransitioning && opCurrentWidth !== null ? `${opCurrentWidth}px` : undefined,
-																		overflow: isOpWidthTransitioning ? 'hidden' : undefined,
-																		whiteSpace: 'nowrap',
+																		display: 'inline-block',
 																		verticalAlign: 'middle',
 																		lineHeight: '1'
 																	}}
@@ -1596,9 +1562,19 @@ const OrderOfOperations = () => {
 																		setHighlightedOperationRef(el);
 																	}}
 																>
-																	{isOpWidthTransitioning && opCurrentWidth !== null && opTargetWidth !== null
-																		? (isSimplifying && !isHighlightedOperationShrinking ? currentOperationResult : highlightedOperation)
-																		: highlightedOperation}
+																	{highlightedParts.map((part, j) => (
+																		<span
+																			key={`highlighted-part-${j}`}
+																			style={{
+																				display: 'inline-block',
+																				verticalAlign: 'middle',
+																				lineHeight: '1',
+																				padding: /[+\-×÷()]/.test(part) ? '0 0.2em' : '0 0.05em'
+																			}}
+																		>
+																			{part}
+																		</span>
+																	))}
 																</span>
 															);
 														}
@@ -1613,7 +1589,7 @@ const OrderOfOperations = () => {
 												style={{
 													position: 'absolute',
 													left: `${highlightedOperationPosition.left}px`,
-													top: '21%',
+													top: '25%', // Changed from '21%' to '25%' to move it down
 													transform: 'translate(-50%, -50%)',
 													zIndex: 10,
 													display: 'inline',
