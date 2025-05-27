@@ -65,6 +65,7 @@ const OrderOfOperations = () => {
 	const [showGrowIn, setShowGrowIn] = useState(false);
 	const [fadeOutGrowIn, setFadeOutGrowIn] = useState(false);
 	const [hasShownPemdasAnimation, setHasShownPemdasAnimation] = useState(false);
+	const [showNavigationButtons, setShowNavigationButtons] = useState(false);
 
 	// Add handleContinue function definition
 	const handleContinue = () => {
@@ -1084,6 +1085,18 @@ const OrderOfOperations = () => {
 		}
 	}, [isSimplifying, isHighlightedOperationShrinking, isOpWidthTransitioning]);
 
+	// Add useEffect to handle navigation button visibility
+	useEffect(() => {
+		if (isSolved) {
+			const timer = setTimeout(() => {
+				setShowNavigationButtons(true);
+			}, 700); // 500ms delay
+			return () => clearTimeout(timer);
+		} else {
+			setShowNavigationButtons(false);
+		}
+	}, [isSolved]);
+
 	return (
 		<>
 			<style>{`
@@ -1459,7 +1472,7 @@ const OrderOfOperations = () => {
 										<div className="flex items-center gap-4 relative z-50">
 											<button
 												onClick={() => handleNavigateHistory('back')}
-												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/10 text-[#008545] hover:bg-[#008545]/20 transition-all duration-200 relative z-50 ${!isSolved ? 'invisible pointer-events-none' : isBigShrinking ? 'shrink-out' : 'grow-in'}`}
+												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/10 text-[#008545] hover:bg-[#008545]/20 transition-all duration-200 relative z-50 ${!showNavigationButtons || !isSolved || currentHistoryIndex <= 0 ? 'invisible pointer-events-none' : isBigShrinking ? 'shrink-out' : 'grow-in'}`}
 											>
 												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 													<path d="M15 18l-6-6 6-6"/>
@@ -1475,7 +1488,7 @@ const OrderOfOperations = () => {
 											</div>
 											<button
 												onClick={() => handleNavigateHistory('forward')}
-												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/10 text-[#008545] hover:bg-[#008545]/20 transition-all duration-200 relative z-50 ${!isSolved ? 'invisible pointer-events-none' : isBigShrinking ? 'shrink-out' : 'grow-in'}`}
+												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/10 text-[#008545] hover:bg-[#008545]/20 transition-all duration-200 relative z-50 ${!showNavigationButtons || !isSolved || currentHistoryIndex >= expressionHistory.length - 1 ? 'invisible pointer-events-none' : isBigShrinking ? 'shrink-out' : 'grow-in'}`}
 											>
 												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 													<path d="M9 18l6-6-6-6"/>
