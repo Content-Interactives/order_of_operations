@@ -43,6 +43,8 @@ const OrderOfOperations = () => {
 	const [showNavigationButtons, setShowNavigationButtons] = useState(false);
 	const [navigationDirection, setNavigationDirection] = useState(null);
 	const [leftButtonVisible, setLeftButtonVisible] = useState(false);
+	const [isGlowActive, setIsGlowActive] = useState(true);  // Add this with other state declarations
+	const [isContinueGlowActive, setIsContinueGlowActive] = useState(true);  // Add this with other state declarations
 
 	// Add handleContinue function definition
 	const handleContinue = () => {
@@ -50,12 +52,14 @@ const OrderOfOperations = () => {
 		setIsContinueButtonShrinking(true);
 		setIsHighlightedOperationShrinking(true);
 		setIsHighlightedOperationGrowing(false);
-		setNavigationDirection('forward'); // Add this line to trigger the progress circle animation
+		setNavigationDirection('forward');
+		setIsGlowActive(false);
+		setIsContinueGlowActive(false);  // Turn off continue button glow
 
 		// Add small delay before removing highlights
 		setTimeout(() => {
-			setShowOperationHighlight(false); // Remove highlights immediately
-			setHighlightedOperation(null); // Reset the highlighted operation
+			setShowOperationHighlight(false);
+			setHighlightedOperation(null);
 		}, 100);
 
 		// Get current operation and calculate results
@@ -196,9 +200,6 @@ const OrderOfOperations = () => {
 
 	const handleRandomExpression = () => {
 		setExpression(generateRandomExpression());
-		// Reset continue button state
-		// setShowContinueButton(false);
-		// setIsContinueButtonShrinking(false);
 	};
 
 	const handleExpressionChange = (e) => {
@@ -890,6 +891,9 @@ const OrderOfOperations = () => {
 				return;
 			}
 
+			// Only remove the glow effect if validation passed
+			setIsGlowActive(false);
+
 			// Start the animation sequence
 			setIsPemdasAnimating(true);
 			setIsShrinking(true);
@@ -1448,16 +1452,79 @@ const OrderOfOperations = () => {
 			.shrinking {
 				animation: bounce-then-shrink 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
 			}
+
+			/* Orbit Glow Button Styles */
+			.glow-button { 
+				min-width: auto; 
+				height: auto; 
+				position: relative; 
+				border-radius: 8px;  /* Changed from 16px to 6px to match button radius */
+				cursor: pointer;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				z-index: 1;
+				transition: all .3s ease;
+				padding: 7px;
+			}
+
+			.glow-button::before {
+				content: "";
+				display: block;
+				position: absolute;
+				background: #fff;
+				inset: 2px;
+				border-radius: 4px;  /* Changed from 14px to 4px to match inner radius */
+				z-index: -2;
+			}
+
+			.glow-button::after {
+				display: none;
+			}
+
+			@property --r {
+				syntax: '<angle>';
+				inherits: false;
+				initial-value: 0deg;
+			}
+
+			.simple-glow {
+				background: conic-gradient(
+					from var(--r),
+					transparent 0%,
+					rgb(0, 255, 132) 2%,
+					rgb(0, 214, 111) 8%,
+					rgb(0, 174, 90) 12%,
+					rgb(0, 133, 69) 14%,
+					transparent 15%
+				);
+				animation: rotating 3s linear infinite;
+				transition: animation 0.3s ease;
+			}
+
+			/* Remove the hover effect that changes animation speed */
+			.simple-glow:hover {
+				animation: rotating 3s linear infinite;  /* Keep the same speed as non-hover */
+			}
+
+			@keyframes rotating {
+				0% {
+					--r: 0deg;
+				}
+				100% {
+					--r: 360deg;
+				}
+			}
 			`}</style>
 			<div className="w-[500px] mx-auto mt-5 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05)] bg-white rounded-lg select-none">
 				<div className="p-4">
-					<div className="flex justify-between items-center mb-4">
+					<div className="flex justify-between items-center mb-2">  {/* Changed from mb-4 to mb-2 */}
 						<h2 className="text-[#008545] text-sm font-medium select-none">Order of Operations Explorer</h2>
 						<div className="flex gap-2">
 						</div>
 					</div>
 
-					<div className="flex items-center gap-2 mb-4 max-w-[470px] mx-auto">
+					<div className="flex items-center gap-2 max-w-[470px] mx-auto">  {/* Changed from mb-4 to mb-2 */}
 						<input
 							type="text"
 							value={expression}
@@ -1465,21 +1532,25 @@ const OrderOfOperations = () => {
 							placeholder="Enter an expression (e.g., 2 + 3 * 4)"
 							className="flex-1 h-[35px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008545] select-none"
 						/>
-						<Button 
-							onClick={handleSimplify}
-							className="h-[35px] bg-[#008545] hover:bg-[#00783E] text-white text-sm px-3 rounded-md select-none touch-manipulation"
-						>
-							Simplify
-						</Button>
-						<Button 
-							onClick={handleRandomExpression}
-							className="h-[35px] bg-[#008545] hover:bg-[#00783E] text-white text-sm px-3 rounded-md select-none touch-manipulation"
-						>
-							Random
-						</Button>
+						<div className={`glow-button ${isGlowActive ? 'simple-glow' : ''}`}>
+							<div className="flex gap-2">
+								<Button 
+									onClick={handleSimplify}
+									className="h-[35px] bg-[#008545] hover:bg-[#00783E] text-white text-sm px-3 rounded-md select-none touch-manipulation"
+								>
+									Simplify
+								</Button>
+								<Button 
+									onClick={handleRandomExpression}
+									className="h-[35px] bg-[#008545] hover:bg-[#00783E] text-white text-sm px-3 rounded-md select-none touch-manipulation"
+								>
+									Random
+								</Button>
+							</div>
+						</div>
 					</div>
 
-					<div className="mt-4 space-y-4">
+					<div className="mt-2 space-y-4">
 						<div className={`w-full min-h-[200px] p-2 bg-white border border-[#008545]/30 rounded-md flex justify-center items-center relative`}> 
 							{!showPlaceholder && !isPemdasAnimating && isPemdasAnimationComplete && (
 								<div className="w-full flex flex-col gap-2 items-center justify-end absolute left-0 bottom-0 pb-3">
@@ -1658,13 +1729,15 @@ const OrderOfOperations = () => {
 										)}
 									</p>
 									{showContinueButton && (
-										<div className={`absolute bottom-3 right-3 z-50 ${isContinueButtonShrinking ? 'shrink-out' : 'grow-in'}`}>
-											<Button 
-												onClick={handleContinue}
-												className="h-[35px] bg-[#008545] hover:bg-[#00783E] text-white text-sm px-3 rounded-md select-none touch-manipulation"
-											>
-												Continue
-											</Button>
+										<div className={`absolute bottom-1.5 right-1.5 z-50 ${isContinueButtonShrinking ? 'shrink-out' : 'grow-in'}`}>
+											<div className={`glow-button ${isContinueGlowActive ? 'simple-glow' : ''}`}>
+												<Button 
+													onClick={handleContinue}
+													className="h-[35px] bg-[#008545] hover:bg-[#00783E] text-white text-sm px-3 rounded-md select-none touch-manipulation"
+												>
+													Continue
+												</Button>
+											</div>
 										</div>
 									)}
 									{showOperationButtons && (
