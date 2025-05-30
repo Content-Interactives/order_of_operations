@@ -3,13 +3,6 @@ import { Button } from '../../../annuity/src/components/ui/button';
 
 const OrderOfOperations = () => {
 	const [currentStep, setCurrentStep] = useState(1);
-	const [completedSteps, setCompletedSteps] = useState({
-		step1: false,
-		step2: false,
-		step3: false,
-		step4: false,
-		step5: false
-	});
 	const [expression, setExpression] = useState('');
 	const [isError, setIsError] = useState(false);
 	const [showPlaceholder, setShowPlaceholder] = useState(true);
@@ -21,7 +14,6 @@ const OrderOfOperations = () => {
 	const [totalSteps, setTotalSteps] = useState(0);
 	const [isProgressShrinking, setIsProgressShrinking] = useState(false);
 	const [isProgressGrowing, setIsProgressGrowing] = useState(false);
-	const [showProgress, setShowProgress] = useState(false);
 	const [showOperationHighlight, setShowOperationHighlight] = useState(false);
 	const [showContinueButton, setShowContinueButton] = useState(false);
 	const [highlightedOperation, setHighlightedOperation] = useState(null);
@@ -34,37 +26,20 @@ const OrderOfOperations = () => {
 	const [highlightedOperationPosition, setHighlightedOperationPosition] = useState({ left: 0, top: 0 });
 	const [highlightedOperationRef, setHighlightedOperationRef] = useState(null);
 	const [isLastInParentheses, setIsLastInParentheses] = useState(false);
-	const [fullParentheses, setFullParentheses] = useState(null);
-	const [isFirstValidExpression, setIsFirstValidExpression] = useState(true);
-	const [showPemdasWords, setShowPemdasWords] = useState(false);
-	const [animatingWords, setAnimatingWords] = useState([]);
-	const [showPemdasSymbols, setShowPemdasSymbols] = useState(false);
-	const [animatingSymbols, setAnimatingSymbols] = useState([]);
-	const [isTestContentShrinking, setIsTestContentShrinking] = useState(false);
-	const [showTestContent, setShowTestContent] = useState(true);
 	const [isPemdasAnimationComplete, setIsPemdasAnimationComplete] = useState(false);
 	const [showOperationButtons, setShowOperationButtons] = useState(true);
-	const [isAnimating, setIsAnimating] = useState(false);
 	const [isPemdasAnimating, setIsPemdasAnimating] = useState(false);
 	const [isPemdasButtonsShrinking, setIsPemdasButtonsShrinking] = useState(false);
 	const [isPemdasButtonsGrowing, setIsPemdasButtonsGrowing] = useState(false);
 	const [isFirstValidSimplify, setIsFirstValidSimplify] = useState(true);
-	// Add new state for expression history
+	const [needsDelay, setNeedsDelay] = useState(true);
 	const [expressionHistory, setExpressionHistory] = useState([]);
 	const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1);
-	const [isFullySolved, setIsFullySolved] = useState(false);
 	const [isSolved, setIsSolved] = useState(false);  // Add new state for tracking if expression is solved
-	const [isWidthTransitioning, setIsWidthTransitioning] = useState(false);
-	const [targetWidth, setTargetWidth] = useState(null);
 	const expressionContentRef = useRef(null);
-	const [currentWidth, setCurrentWidth] = useState(null);
 	const [isOpWidthTransitioning, setIsOpWidthTransitioning] = useState(false);
-	const [opCurrentWidth, setOpCurrentWidth] = useState(null);
-	const [opTargetWidth, setOpTargetWidth] = useState(null);
 	const opWidthRef = useRef(null);
 	const [showGrowIn, setShowGrowIn] = useState(false);
-	const [fadeOutGrowIn, setFadeOutGrowIn] = useState(false);
-	const [hasShownPemdasAnimation, setHasShownPemdasAnimation] = useState(false);
 	const [showNavigationButtons, setShowNavigationButtons] = useState(false);
 
 	// Add handleContinue function definition
@@ -145,7 +120,6 @@ const OrderOfOperations = () => {
 			if (nextOp === null && isSingleNumber) {
 				setShowOperationHighlight(false);
 				setHighlightedOperation(null);
-				setIsFullySolved(true);
 				setIsSolved(true);
 			} else {
 				// Set up next operation but don't show highlight yet
@@ -781,20 +755,40 @@ const OrderOfOperations = () => {
 			setCurrentHistoryIndex(newIndex);
 			setDisplayedExpression(expressionHistory[newIndex]);
 			setCurrentStep(newIndex + 1);
-			setShowOperationHighlight(false);
-			setHighlightedOperation(null);
+			
+			// Get the operation that was highlighted at this step
+			const nextOp = getNextOperation(expressionHistory[newIndex]);
+			const leftmostOp = getLeftmostOperation(expressionHistory[newIndex], nextOp);
+			
+			// Set up highlighting for this step
+			setShowOperationHighlight(true);
+			setHighlightedOperation(leftmostOp.operation);
+			setIsLastInParentheses(leftmostOp.isLastInParentheses);
+			setIsHighlightedOperationVisible(true);
+			setIsHighlightedOperationGrowing(true);
+			
+			// Ensure continue button stays hidden during navigation
 			setShowContinueButton(false);
-			setIsFullySolved(false);
+			
 		} else if (direction === 'forward' && currentHistoryIndex < expressionHistory.length - 1) {
 			const newIndex = currentHistoryIndex + 1;
 			setCurrentHistoryIndex(newIndex);
 			setDisplayedExpression(expressionHistory[newIndex]);
 			setCurrentStep(newIndex + 1);
-			setShowOperationHighlight(false);
-			setHighlightedOperation(null);
+			
+			// Get the operation that was highlighted at this step
+			const nextOp = getNextOperation(expressionHistory[newIndex]);
+			const leftmostOp = getLeftmostOperation(expressionHistory[newIndex], nextOp);
+			
+			// Set up highlighting for this step
+			setShowOperationHighlight(true);
+			setHighlightedOperation(leftmostOp.operation);
+			setIsLastInParentheses(leftmostOp.isLastInParentheses);
+			setIsHighlightedOperationVisible(true);
+			setIsHighlightedOperationGrowing(true);
+			
+			// Ensure continue button stays hidden during navigation
 			setShowContinueButton(false);
-			// Only set isFullySolved to true if we're at the last step
-			setIsFullySolved(newIndex === expressionHistory.length - 1);
 		}
 	};
 
@@ -815,9 +809,7 @@ const OrderOfOperations = () => {
 		setHighlightedOperationPosition({ left: 0, top: 0 });
 		setHighlightedOperationRef(null);
 		setIsLastInParentheses(false);
-		setFullParentheses(null);
 		setIsPemdasAnimationComplete(false);
-		setIsFullySolved(false);
 		setIsSolved(false);
 
 		// Reset history when starting a new simplification
@@ -833,13 +825,6 @@ const OrderOfOperations = () => {
 		setTimeout(() => {
 			// Reset all state variables
 			setCurrentStep(1);
-			setCompletedSteps({
-				step1: false,
-				step2: false,
-				step3: false,
-				step4: false,
-				step5: false
-			});
 			setIsError(false);
 			setIsShrinking(false);
 			setDisplayedExpression('');
@@ -849,7 +834,6 @@ const OrderOfOperations = () => {
 			setTotalSteps(0);
 			setIsProgressShrinking(false);
 			setIsProgressGrowing(false);
-			setShowProgress(false);
 			setShowOperationHighlight(false);
 			setShowContinueButton(false);
 			setHighlightedOperation(null);
@@ -862,7 +846,6 @@ const OrderOfOperations = () => {
 			setHighlightedOperationPosition({ left: 0, top: 0 });
 			setHighlightedOperationRef(null);
 			setIsLastInParentheses(false);
-			setFullParentheses(null);
 
 			const validation = validateExpression(expression);
 			if (!validation.isValid) {
@@ -877,9 +860,9 @@ const OrderOfOperations = () => {
 						setShowPlaceholder(true);
 						setIsBigShrinking(false);
 						setIsProgressShrinking(false);
-						setShowProgress(false);
 						setIsPlaceholderGrowing(true);
 						setIsError(true);
+						setNeedsDelay(true);
 						setTimeout(() => {
 							setIsError(false);
 							setIsPlaceholderGrowing(false);
@@ -893,7 +876,6 @@ const OrderOfOperations = () => {
 			}
 
 			// Start the animation sequence
-			setIsAnimating(true);
 			setIsPemdasAnimating(true);
 			setIsShrinking(true);
 			
@@ -902,88 +884,81 @@ const OrderOfOperations = () => {
 				setShowPlaceholder(false);
 				setIsShrinking(false);
 
-				if (isFirstValidSimplify && !hasShownPemdasAnimation) {
-					// Only run PEMDAS animation on first time and if it hasn't been shown before
-					setShowPemdasWords(true);
-					setHasShownPemdasAnimation(true);
-					const words = ['Parenthesis', 'Exponent', 'Multiplication', 'Division', 'Addition', 'Subtraction'];
+				// Run PEMDAS animation if it's the first time or if there was an error
+				if (isFirstValidSimplify || needsDelay) {  // Changed from isError to needsDelay
 					
-					words.forEach((word, index) => {
-						setTimeout(() => {
-							setAnimatingWords(prev => [...prev, word]);
+					// Reset animation state to ensure it runs
+					setIsPemdasAnimating(true);
+					setIsPemdasAnimationComplete(false);
+					setIsPemdasButtonsShrinking(false);
+					setIsPemdasButtonsGrowing(true);
+					
+					// After words animation, show symbols
+					setTimeout(() => {                        
+						
+						// After symbols animation, show expression
+						setTimeout(() => {							
+							setIsFirstValidSimplify(false);
+							
+							// Wait for all button animations to complete before showing expression
 							setTimeout(() => {
-								setAnimatingWords(prev => prev.filter(w => w !== word));
 								
-								// After the last word animation, show symbols
-								if (index === words.length - 1) {
-									setTimeout(() => {
-										setShowPemdasWords(false);
-										setShowPemdasSymbols(true);
-										
-										// Start animating symbols one by one
-										const symbols = ['( )', '^', '× ÷', '+ -'];
-										symbols.forEach((symbol, symbolIndex) => {
-											setTimeout(() => {
-												setAnimatingSymbols(prev => [...prev, symbol]);
-												setTimeout(() => {
-													setAnimatingSymbols(prev => prev.filter(s => s !== symbol));
-													
-													// After the last symbol animation, show the interactive elements
-													if (symbolIndex === symbols.length - 1) {
-														setTimeout(() => {
-															setShowPemdasSymbols(false);
-															setIsFirstValidSimplify(false);
-															
-															// Wait for all button animations to complete (6500ms)
-															setTimeout(() => {
-																setIsPemdasAnimating(false);
-																setIsPemdasAnimationComplete(true);
-																setIsAnimating(false);
-																
-																// Show the expression and interactive elements
-																setDisplayedExpression(expression);
-																setBigAnimKey(prev => prev + 1);
-																setTotalSteps(calculateTotalSteps(expression));
-																setCurrentStep(1);
-																setIsProgressGrowing(true);
-																// Don't grow in buttons for first simplify
-																setShowOperationButtons(true);
-																
-																setTimeout(() => {
-																	setIsProgressGrowing(false);
-																	setShowOperationHighlight(true);
-																	const nextOp = getNextOperation(expression);
-																	const leftmostOp = getLeftmostOperation(expression, nextOp);
-																	setHighlightedOperation(leftmostOp.operation);
-																	setIsLastInParentheses(leftmostOp.isLastInParentheses);
-																	setFullParentheses(leftmostOp.fullParentheses);
-																	
-																	setTimeout(() => {
-																		setShowContinueButton(true);
-																		setIsAnimating(false);
-																	}, 500);
-																}, 1000);
-															}, 6500); // Wait for all button animations to complete
-														}, 500);
-													}
-												}, 800);
-											}, symbolIndex * 300);
-										});
-									}, 100);
+								// Only set these states if we're not in the delay period
+								if (!needsDelay) {
+									setIsPemdasAnimating(false);
+									setIsPemdasAnimationComplete(true);
 								}
-							}, 800);
-						}, index * 300);
-					});
+								
+								// Add conditional delay after PEMDAS animation
+								const delay = needsDelay ? 9500 : 0;
+								
+								setTimeout(() => {
+									
+									// Show the expression and interactive elements
+									setDisplayedExpression(expression);
+									setBigAnimKey(prev => prev + 1);
+									setTotalSteps(calculateTotalSteps(expression));
+									setCurrentStep(1);
+									setIsProgressGrowing(true);
+									setShowOperationButtons(true);
+									setIsPemdasButtonsGrowing(true);
+									
+									setTimeout(() => {
+										
+										setIsProgressGrowing(false);
+										setShowOperationHighlight(true);
+										const nextOp = getNextOperation(expression);
+										const leftmostOp = getLeftmostOperation(expression, nextOp);
+										setHighlightedOperation(leftmostOp.operation);
+										setIsLastInParentheses(leftmostOp.isLastInParentheses);
+										
+										setTimeout(() => {
+											
+											setShowContinueButton(true);
+											setNeedsDelay(false); // Reset the delay flag
+											
+											// Only set these states after everything is complete
+											setTimeout(() => {
+												setIsPemdasAnimating(false);
+												setIsPemdasAnimationComplete(true);
+												setIsPemdasButtonsGrowing(false);
+												
+											}, 500);
+										}, 500);
+									}, 1000);
+								}, delay);
+							}, 0);
+						}, 1200); // Wait for all symbols to animate
+					}, 2400); // Wait for all words to animate
 				} else {
-					// For subsequent simplifications or if PEMDAS has been shown, show the expression immediately
+					// For subsequent valid simplifications (not after error), show expression immediately
 					setIsPemdasAnimating(false);
 					setIsPemdasAnimationComplete(true);
-					setIsAnimating(false);
 					setShowOperationButtons(true);
 					
 					// Show the expression and interactive elements immediately
 					setDisplayedExpression(expression);
-					setBigAnimKey(prev => prev + 1);
+																	setBigAnimKey(prev => prev + 1);
 					setTotalSteps(calculateTotalSteps(expression));
 					setCurrentStep(1);
 					setIsProgressGrowing(true);
@@ -1001,11 +976,9 @@ const OrderOfOperations = () => {
 						const leftmostOp = getLeftmostOperation(expression, nextOp);
 						setHighlightedOperation(leftmostOp.operation);
 						setIsLastInParentheses(leftmostOp.isLastInParentheses);
-						setFullParentheses(leftmostOp.fullParentheses);
 						
 						setTimeout(() => {
 							setShowContinueButton(true);
-							setIsAnimating(false);
 							setIsPemdasButtonsGrowing(false);
 						}, 500);
 					}, 1000);
@@ -1072,16 +1045,12 @@ const OrderOfOperations = () => {
 	useEffect(() => {
 		if (isSimplifying && !isHighlightedOperationShrinking && !isOpWidthTransitioning) {
 			setShowGrowIn(true);
-			setFadeOutGrowIn(false);
 		} else if (isSimplifying && !isHighlightedOperationShrinking && isOpWidthTransitioning && showGrowIn) {
-			setFadeOutGrowIn(true);
 			setTimeout(() => {
 				setShowGrowIn(false);
-				setFadeOutGrowIn(false);
 			}, 300); // match fade-out duration
 		} else if (!isSimplifying || isHighlightedOperationShrinking) {
 			setShowGrowIn(false);
-			setFadeOutGrowIn(false);
 		}
 	}, [isSimplifying, isHighlightedOperationShrinking, isOpWidthTransitioning]);
 
@@ -1226,12 +1195,28 @@ const OrderOfOperations = () => {
 				height: 8px;
 				border-radius: 50%;
 				background-color: #E5E7EB;
-				transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+				transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 				transform: scale(1);
 			}
 			.progress-circle.active {
-				background-color: #00783E;
+				background-color: #5750E3;
 				transform: scale(1.2);
+			}
+			.progress-circle.active-new {
+				animation: progress-circle-active 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+			}
+			@keyframes progress-circle-active {
+				0% { 
+					background-color: #E5E7EB;
+					transform: scale(1);
+				}
+				50% {
+					transform: scale(1.3);
+				}
+				100% { 
+					background-color: #5750E3;
+					transform: scale(1.2);
+				}
 			}
 			.progress-circle.shrink-out {
 				animation: shrink-out 0.4s cubic-bezier(0.4,0,0.2,1) both;
@@ -1288,7 +1273,7 @@ const OrderOfOperations = () => {
 			}
 			@keyframes highlight {
 				0% { color: inherit; }
-				100% { color: #008545; }
+				100% { color: #5750E3; }
 			}
 			.highlight {
 				animation: highlight 0.3s cubic-bezier(0.4,0,0.2,1) forwards;
@@ -1354,8 +1339,8 @@ const OrderOfOperations = () => {
 				position: relative;
 			}
 			.operation-button.active {
-				background-color: #339D6A !important;
-				border-color: #339D6A !important;
+				background-color: #5750E3 !important;
+				border-color: #5750E3 !important;
 				color: white !important;
 				cursor: default !important;
 			}
@@ -1364,7 +1349,7 @@ const OrderOfOperations = () => {
 				bottom: -25px;
 				left: 50%;
 				transform: translateX(-50%);
-				background-color: #339D6A;
+				background-color: #5750E3;
 				color: white;
 				padding: 4px 8px;
 				border-radius: 4px;
@@ -1388,7 +1373,7 @@ const OrderOfOperations = () => {
 				transform: translateX(-50%);
 				border-width: 0 4px 4px 4px;
 				border-style: solid;
-				border-color: transparent transparent #66B68F transparent;
+				border-color: transparent transparent #5750E3 transparent;
 			}
 			.nav-button {
 				transition: all 0.2s ease;
@@ -1469,10 +1454,10 @@ const OrderOfOperations = () => {
 								<div className="w-full flex flex-col gap-2 items-center justify-end absolute left-0 bottom-0 pb-3">
 									{/* Progress Bar with Navigation */}
 									{totalSteps > 0 && (
-										<div className="flex items-center gap-4 relative z-50">
+										<div className={`flex items-center gap-4 relative z-50 ${isBigShrinking ? 'shrink-out' : 'grow-in'}`}>
 											<button
 												onClick={() => handleNavigateHistory('back')}
-												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/10 text-[#008545] hover:bg-[#008545]/20 transition-all duration-200 relative z-50 ${!showNavigationButtons || !isSolved || currentHistoryIndex <= 0 ? 'invisible pointer-events-none' : isBigShrinking ? 'shrink-out' : 'grow-in'}`}
+												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#5750E3]/10 text-[#5750E3] hover:bg-[#5750E3]/20 transition-all duration-200 relative z-50 ${!showNavigationButtons || !isSolved || currentHistoryIndex <= 0 ? 'invisible pointer-events-none' : ''}`}
 											>
 												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 													<path d="M15 18l-6-6 6-6"/>
@@ -1482,13 +1467,13 @@ const OrderOfOperations = () => {
 												{[...Array(totalSteps + 1)].map((_, index) => (
 													<div
 														key={`${bigAnimKey}-${index}`}
-														className={`progress-circle ${index + 1 <= currentStep ? 'active' : ''} ${isProgressShrinking || isBigShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
+														className={`progress-circle ${index + 1 <= currentStep ? 'active' : ''} ${index + 1 === currentStep ? 'active-new' : ''} ${isProgressShrinking || isBigShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
 													/>
 												))}
 											</div>
 											<button
 												onClick={() => handleNavigateHistory('forward')}
-												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/10 text-[#008545] hover:bg-[#008545]/20 transition-all duration-200 relative z-50 ${!showNavigationButtons || !isSolved || currentHistoryIndex >= expressionHistory.length - 1 ? 'invisible pointer-events-none' : isBigShrinking ? 'shrink-out' : 'grow-in'}`}
+												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#5750E3]/10 text-[#5750E3] hover:bg-[#5750E3]/20 transition-all duration-200 relative z-50 ${!showNavigationButtons || !isSolved || currentHistoryIndex >= expressionHistory.length - 1 ? 'invisible pointer-events-none' : ''}`}
 											>
 												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 													<path d="M9 18l6-6-6-6"/>
@@ -1628,10 +1613,10 @@ const OrderOfOperations = () => {
 										)}
 									</p>
 									{showContinueButton && (
-										<div className="absolute bottom-3 right-3 z-50">
+										<div className={`absolute bottom-3 right-3 z-50 ${isContinueButtonShrinking ? 'shrink-out' : 'grow-in'}`}>
 											<Button 
 												onClick={handleContinue}
-												className={`h-[35px] bg-[#008545] hover:bg-[#00783E] text-white text-sm px-3 rounded-md select-none touch-manipulation ${isContinueButtonShrinking ? 'shrink-out' : 'fade-in'}`}
+												className="h-[35px] bg-[#008545] hover:bg-[#00783E] text-white text-sm px-3 rounded-md select-none touch-manipulation"
 											>
 												Continue
 											</Button>
@@ -1640,15 +1625,16 @@ const OrderOfOperations = () => {
 									{showOperationButtons && (
 										<div className={`absolute inset-0 ${isPemdasButtonsShrinking ? 'shrink-out' : isPemdasButtonsGrowing ? 'grow-in' : ''}`}>
 											<div className="relative w-full h-full">
+												{/* Parentheses */}
 												<div className="absolute left-[173px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0s' }}>
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-up-after-down" style={{ animationDelay: '1.8s' }}>
-															<div className="shrink-out" style={{ animationDelay: '3.5s' }}>
-																<span className="text-[#008545] font-bold text-2xl">P</span>
-																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '2.6s' }}>arenthesis</span>
+															<div className="shrink-out" style={{ animationDelay: '3.1s' }}>
+																<span className="text-[#5750E3] font-bold text-2xl">P</span>
+																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '2.4s' }}>arentheses</span>
 															</div>
-															<div className="absolute left-[35%] top-0 opacity-0 grow-in" style={{ animationDelay: '3.8s' }}>
-																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-lg font-medium move-parenthesis-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).inParentheses ? 'active' : ''}`} style={{ animationDelay: '4.2s' }}>
+															<div className="absolute left-[35%] top-0 opacity-0 grow-in" style={{ animationDelay: '3.5s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] rounded-md border border-[#5750E3]/30 text-lg font-medium move-parenthesis-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).inParentheses ? 'active' : ''}`} style={{ animationDelay: '3.9s' }}>
 																	( )
 																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Parentheses</span>}
 																</button>
@@ -1656,15 +1642,16 @@ const OrderOfOperations = () => {
 														</div>
 													</div>
 												</div>
+												{/* Exponent */}
 												<div className="absolute left-[194px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.1s' }}>
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-exponent" style={{ animationDelay: '4.6s' }}>
-															<div className="shrink-out" style={{ animationDelay: '5.4s' }}>
-																<span className="text-[#008545] font-bold text-2xl">E</span>
-																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '5.0s' }}>xponent</span>
+															<div className="shrink-out" style={{ animationDelay: '6.0s' }}>
+																<span className="text-[#5750E3] font-bold text-2xl">E</span>
+																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '5.2s' }}>xponent</span>
 															</div>
-															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '5.8s' }}>
-																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-sm font-medium move-exponent-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '^' ? 'active' : ''}`} style={{ animationDelay: '6.2s' }}>
+															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '6.4s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] rounded-md border border-[#5750E3]/30 text-sm font-medium move-exponent-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '^' ? 'active' : ''}`} style={{ animationDelay: '6.8s' }}>
 																	x<sup>n</sup>
 																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Exponent</span>}
 																</button>
@@ -1672,15 +1659,16 @@ const OrderOfOperations = () => {
 														</div>
 													</div>
 												</div>
+												{/* Multiplication */}
 												<div className="absolute left-[214px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.2s' }}>
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
-														<div className="move-multiplication" style={{ animationDelay: '6.6s' }}>
-															<div className="shrink-out" style={{ animationDelay: '7.4s' }}>
-																<span className="text-[#008545] font-bold text-2xl">M</span>
-																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '7.0s' }}>ultiplication</span>
+														<div className="move-multiplication" style={{ animationDelay: '7.5s' }}>
+															<div className="shrink-out" style={{ animationDelay: '8.8s' }}>
+																<span className="text-[#5750E3] font-bold text-2xl">M</span>
+																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '8.0s' }}>ultiplication</span>
 															</div>
-															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '7.8s' }}>
-																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-lg font-medium move-multiply-divide-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '×÷' ? 'active' : ''}`} style={{ animationDelay: '8.2s' }}>
+															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '9.2s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] rounded-md border border-[#5750E3]/30 text-lg font-medium move-multiply-divide-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '×÷' ? 'active' : ''}`} style={{ animationDelay: '9.6s' }}>
 																		×÷
 																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Multiplication / Division</span>}
 																</button>
@@ -1688,25 +1676,27 @@ const OrderOfOperations = () => {
 														</div>
 													</div>
 												</div>
+												{/* Division */}
 												<div className="absolute left-[242px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.3s' }}>
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
-														<div className="move-division" style={{ animationDelay: '6.6s' }}>
-															<div className="shrink-out" style={{ animationDelay: '7.4s' }}>
-																<span className="text-[#008545] font-bold text-2xl">D</span>
-																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '7.0s' }}>ivision</span>
+														<div className="move-division" style={{ animationDelay: '7.5s' }}>
+															<div className="shrink-out" style={{ animationDelay: '8.8s' }}>
+																<span className="text-[#5750E3] font-bold text-2xl">D</span>
+																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '8.0s' }}>ivision</span>
 															</div>
 														</div>
 													</div>
 												</div>
+												{/* Addition */}
 												<div className="absolute left-[264px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.4s' }}>
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
-														<div className="move-addition" style={{ animationDelay: '8.6s' }}>
-															<div className="shrink-out" style={{ animationDelay: '9.4s' }}>
-																<span className="text-[#008545] font-bold text-2xl">A</span>
-																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '9.0s' }}>ddition</span>
+														<div className="move-addition" style={{ animationDelay: '10.3s' }}>
+															<div className="shrink-out" style={{ animationDelay: '11.6s' }}>
+																<span className="text-[#5750E3] font-bold text-2xl">A</span>
+																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.8s' }}>ddition</span>
 															</div>
-															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '9.8s' }}>
-																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-lg font-medium move-add-subtract-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '+-' ? 'active' : ''}`} style={{ animationDelay: '10.2s' }}>
+															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '12.0s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] rounded-md border border-[#5750E3]/30 text-lg font-medium move-add-subtract-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '+-' ? 'active' : ''}`} style={{ animationDelay: '12.4s' }}>
 																	+-
 																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Addition / Subtraction</span>}
 																</button>
@@ -1714,12 +1704,13 @@ const OrderOfOperations = () => {
 														</div>
 													</div>
 												</div>
+												{/* Subtraction */}
 												<div className="absolute left-[286px] top-[85px] opacity-0 grow-in" style={{ animationDelay: '0.5s' }}>
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
-														<div className="move-subtraction" style={{ animationDelay: '8.6s' }}>
-															<div className="shrink-out" style={{ animationDelay: '9.4s' }}>
-																<span className="text-[#008545] font-bold text-2xl">S</span>
-																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '9.0s' }}>ubtraction</span>
+														<div className="move-subtraction" style={{ animationDelay: '10.3s' }}>
+															<div className="shrink-out" style={{ animationDelay: '11.6s' }}>
+																<span className="text-[#5750E3] font-bold text-2xl">S</span>
+																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.8s' }}>ubtraction</span>
 															</div>
 														</div>
 													</div>
