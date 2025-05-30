@@ -41,6 +41,8 @@ const OrderOfOperations = () => {
 	const opWidthRef = useRef(null);
 	const [showGrowIn, setShowGrowIn] = useState(false);
 	const [showNavigationButtons, setShowNavigationButtons] = useState(false);
+	const [navigationDirection, setNavigationDirection] = useState(null);
+	const [leftButtonVisible, setLeftButtonVisible] = useState(false);
 
 	// Add handleContinue function definition
 	const handleContinue = () => {
@@ -48,6 +50,7 @@ const OrderOfOperations = () => {
 		setIsContinueButtonShrinking(true);
 		setIsHighlightedOperationShrinking(true);
 		setIsHighlightedOperationGrowing(false);
+		setNavigationDirection('forward'); // Add this line to trigger the progress circle animation
 
 		// Add small delay before removing highlights
 		setTimeout(() => {
@@ -142,6 +145,11 @@ const OrderOfOperations = () => {
 					}, 800);
 				}, 800);
 			}
+
+			// Reset navigation direction after animation
+			setTimeout(() => {
+				setNavigationDirection(null);
+			}, 300);
 		}, 500);
 	};
 
@@ -750,6 +758,8 @@ const OrderOfOperations = () => {
 
 	// Add new function to handle navigation
 	const handleNavigateHistory = (direction) => {
+		setNavigationDirection(direction);
+		
 		if (direction === 'back' && currentHistoryIndex > 0) {
 			const newIndex = currentHistoryIndex - 1;
 			setCurrentHistoryIndex(newIndex);
@@ -790,6 +800,11 @@ const OrderOfOperations = () => {
 			// Ensure continue button stays hidden during navigation
 			setShowContinueButton(false);
 		}
+
+		// Reset direction after animation
+		setTimeout(() => {
+			setNavigationDirection(null);
+		}, 300);
 	};
 
 	// Modify the handleSimplify function to track history
@@ -1059,10 +1074,12 @@ const OrderOfOperations = () => {
 		if (isSolved) {
 			const timer = setTimeout(() => {
 				setShowNavigationButtons(true);
+				setLeftButtonVisible(true);
 			}, 700); // 500ms delay
 			return () => clearTimeout(timer);
 		} else {
 			setShowNavigationButtons(false);
+			setLeftButtonVisible(false);
 		}
 	}, [isSolved]);
 
@@ -1195,15 +1212,13 @@ const OrderOfOperations = () => {
 				height: 8px;
 				border-radius: 50%;
 				background-color: #E5E7EB;
-				transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 				transform: scale(1);
 			}
 			.progress-circle.active {
-				background-color: #5750E3;
-				transform: scale(1.2);
+				background-color: #008545;
 			}
 			.progress-circle.active-new {
-				animation: progress-circle-active 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+					animation: progress-circle-active 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 			}
 			@keyframes progress-circle-active {
 				0% { 
@@ -1214,8 +1229,24 @@ const OrderOfOperations = () => {
 					transform: scale(1.3);
 				}
 				100% { 
-					background-color: #5750E3;
+					background-color: #008545;
 					transform: scale(1.2);
+				}
+			}
+			.progress-circle.shrink-back {
+				animation: progress-circle-shrink 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+			}
+			@keyframes progress-circle-shrink {
+				0% { 
+					background-color: #008545;
+					transform: scale(1.2);
+				}
+				50% {
+					transform: scale(1.3);
+				}
+				100% { 
+					background-color: #E5E7EB;
+					transform: scale(1);
 				}
 			}
 			.progress-circle.shrink-out {
@@ -1228,9 +1259,9 @@ const OrderOfOperations = () => {
 				animation: grow-in 0.4s cubic-bezier(0.4,0,0.2,1) both;
 			}
 			.operation-btn:hover:not(.red-glow):not(.green-glow) {
-				border-color: #5750E3 !important;
-				background: #edeaff !important;
-				color: #5750E3 !important;
+				border-color: #008545 !important;
+				background: #e6f4ea !important;
+				color: #008545 !important;
 				cursor: default !important;
 			}
 			.red-glow {
@@ -1273,7 +1304,7 @@ const OrderOfOperations = () => {
 			}
 			@keyframes highlight {
 				0% { color: inherit; }
-				100% { color: #5750E3; }
+				100% { color: #008545; }
 			}
 			.highlight {
 				animation: highlight 0.3s cubic-bezier(0.4,0,0.2,1) forwards;
@@ -1339,8 +1370,8 @@ const OrderOfOperations = () => {
 				position: relative;
 			}
 			.operation-button.active {
-				background-color: #5750E3 !important;
-				border-color: #5750E3 !important;
+				background-color: #008545 !important;
+				border-color: #008545 !important;
 				color: white !important;
 				cursor: default !important;
 			}
@@ -1349,7 +1380,7 @@ const OrderOfOperations = () => {
 				bottom: -25px;
 				left: 50%;
 				transform: translateX(-50%);
-				background-color: #5750E3;
+				background-color: #008545;
 				color: white;
 				padding: 4px 8px;
 				border-radius: 4px;
@@ -1373,7 +1404,7 @@ const OrderOfOperations = () => {
 				transform: translateX(-50%);
 				border-width: 0 4px 4px 4px;
 				border-style: solid;
-				border-color: transparent transparent #5750E3 transparent;
+				border-color: transparent transparent #008545 transparent;
 			}
 			.nav-button {
 				transition: all 0.2s ease;
@@ -1457,23 +1488,37 @@ const OrderOfOperations = () => {
 										<div className={`flex items-center gap-4 relative z-50 ${isBigShrinking ? 'shrink-out' : 'grow-in'}`}>
 											<button
 												onClick={() => handleNavigateHistory('back')}
-												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#5750E3]/10 text-[#5750E3] hover:bg-[#5750E3]/20 transition-all duration-200 relative z-50 ${!showNavigationButtons || !isSolved || currentHistoryIndex <= 0 ? 'invisible pointer-events-none' : ''}`}
+												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/10 text-[#008545] hover:bg-[#008545]/20 transition-all duration-200 relative z-50 ${!showNavigationButtons || !isSolved || currentHistoryIndex <= 0 ? 'invisible pointer-events-none' : ''} ${leftButtonVisible ? 'grow-in' : ''}`}
 											>
 												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 													<path d="M15 18l-6-6 6-6"/>
 												</svg>
 											</button>
 											<div className="flex gap-2">
-												{[...Array(totalSteps + 1)].map((_, index) => (
-													<div
-														key={`${bigAnimKey}-${index}`}
-														className={`progress-circle ${index + 1 <= currentStep ? 'active' : ''} ${index + 1 === currentStep ? 'active-new' : ''} ${isProgressShrinking || isBigShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''}`}
-													/>
-												))}
+												{[...Array(totalSteps + 1)].map((_, index) => {
+													const isActive = index + 1 <= currentStep;
+													const isCurrentStep = index + 1 === currentStep;
+													const isPreviousStep = index + 1 === currentStep + 1;
+													
+													return (
+														<div
+															key={`${bigAnimKey}-${index}`}
+															className={`progress-circle ${
+																isActive ? 'active' : ''
+															} ${
+																isCurrentStep && navigationDirection === 'forward' && !isContinueButtonShrinking ? 'active-new' : ''
+															} ${
+																isPreviousStep && navigationDirection === 'back' ? 'shrink-back' : ''
+															} ${
+																isProgressShrinking || isBigShrinking ? 'shrink-out' : isProgressGrowing ? 'grow-in' : ''
+															}`}
+														/>
+													);
+												})}
 											</div>
 											<button
 												onClick={() => handleNavigateHistory('forward')}
-												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#5750E3]/10 text-[#5750E3] hover:bg-[#5750E3]/20 transition-all duration-200 relative z-50 ${!showNavigationButtons || !isSolved || currentHistoryIndex >= expressionHistory.length - 1 ? 'invisible pointer-events-none' : ''}`}
+												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/10 text-[#008545] hover:bg-[#008545]/20 transition-all duration-200 relative z-50 ${!showNavigationButtons || !isSolved || currentHistoryIndex >= expressionHistory.length - 1 ? 'invisible pointer-events-none' : ''}`}
 											>
 												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 													<path d="M9 18l6-6-6-6"/>
@@ -1630,11 +1675,11 @@ const OrderOfOperations = () => {
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-up-after-down" style={{ animationDelay: '1.8s' }}>
 															<div className="shrink-out" style={{ animationDelay: '3.1s' }}>
-																<span className="text-[#5750E3] font-bold text-2xl">P</span>
-																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '2.4s' }}>arentheses</span>
+																<span className="text-[#008545] font-bold text-2xl">P</span>
+																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '2.4s' }}>arentheses</span>
 															</div>
 															<div className="absolute left-[35%] top-0 opacity-0 grow-in" style={{ animationDelay: '3.5s' }}>
-																<button className={`w-10 h-10 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] rounded-md border border-[#5750E3]/30 text-lg font-medium move-parenthesis-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).inParentheses ? 'active' : ''}`} style={{ animationDelay: '3.9s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-lg font-medium move-parenthesis-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).inParentheses ? 'active' : ''}`} style={{ animationDelay: '3.9s' }}>
 																	( )
 																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Parentheses</span>}
 																</button>
@@ -1647,11 +1692,11 @@ const OrderOfOperations = () => {
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-exponent" style={{ animationDelay: '4.6s' }}>
 															<div className="shrink-out" style={{ animationDelay: '6.0s' }}>
-																<span className="text-[#5750E3] font-bold text-2xl">E</span>
-																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '5.2s' }}>xponent</span>
+																<span className="text-[#008545] font-bold text-2xl">E</span>
+																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '5.2s' }}>xponent</span>
 															</div>
 															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '6.4s' }}>
-																<button className={`w-10 h-10 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] rounded-md border border-[#5750E3]/30 text-sm font-medium move-exponent-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '^' ? 'active' : ''}`} style={{ animationDelay: '6.8s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-sm font-medium move-exponent-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '^' ? 'active' : ''}`} style={{ animationDelay: '6.8s' }}>
 																	x<sup>n</sup>
 																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Exponent</span>}
 																</button>
@@ -1664,11 +1709,11 @@ const OrderOfOperations = () => {
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-multiplication" style={{ animationDelay: '7.5s' }}>
 															<div className="shrink-out" style={{ animationDelay: '8.8s' }}>
-																<span className="text-[#5750E3] font-bold text-2xl">M</span>
-																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '8.0s' }}>ultiplication</span>
+																<span className="text-[#008545] font-bold text-2xl">M</span>
+																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '8.0s' }}>ultiplication</span>
 															</div>
 															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '9.2s' }}>
-																<button className={`w-10 h-10 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] rounded-md border border-[#5750E3]/30 text-lg font-medium move-multiply-divide-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '×÷' ? 'active' : ''}`} style={{ animationDelay: '9.6s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-lg font-medium move-multiply-divide-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '×÷' ? 'active' : ''}`} style={{ animationDelay: '9.6s' }}>
 																		×÷
 																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Multiplication / Division</span>}
 																</button>
@@ -1681,8 +1726,8 @@ const OrderOfOperations = () => {
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-division" style={{ animationDelay: '7.5s' }}>
 															<div className="shrink-out" style={{ animationDelay: '8.8s' }}>
-																<span className="text-[#5750E3] font-bold text-2xl">D</span>
-																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '8.0s' }}>ivision</span>
+																<span className="text-[#008545] font-bold text-2xl">D</span>
+																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '8.0s' }}>ivision</span>
 															</div>
 														</div>
 													</div>
@@ -1692,11 +1737,11 @@ const OrderOfOperations = () => {
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-addition" style={{ animationDelay: '10.3s' }}>
 															<div className="shrink-out" style={{ animationDelay: '11.6s' }}>
-																<span className="text-[#5750E3] font-bold text-2xl">A</span>
-																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.8s' }}>ddition</span>
+																<span className="text-[#008545] font-bold text-2xl">A</span>
+																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.8s' }}>ddition</span>
 															</div>
 															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '12.0s' }}>
-																<button className={`w-10 h-10 flex items-center justify-center bg-[#5750E3]/10 text-[#5750E3] rounded-md border border-[#5750E3]/30 text-lg font-medium move-add-subtract-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '+-' ? 'active' : ''}`} style={{ animationDelay: '12.4s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-lg font-medium move-add-subtract-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '+-' ? 'active' : ''}`} style={{ animationDelay: '12.4s' }}>
 																	+-
 																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Addition / Subtraction</span>}
 																</button>
@@ -1709,8 +1754,8 @@ const OrderOfOperations = () => {
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-subtraction" style={{ animationDelay: '10.3s' }}>
 															<div className="shrink-out" style={{ animationDelay: '11.6s' }}>
-																<span className="text-[#5750E3] font-bold text-2xl">S</span>
-																<span className="text-[#5750E3] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.8s' }}>ubtraction</span>
+																<span className="text-[#008545] font-bold text-2xl">S</span>
+																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.8s' }}>ubtraction</span>
 															</div>
 														</div>
 													</div>
