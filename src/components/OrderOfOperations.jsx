@@ -103,6 +103,10 @@ const OrderOfOperations = () => {
 					setCurrentStep(prev => prev + 1);
 					setBigAnimKey(prev => prev + 1);
 
+					// Add the simplified expression to history
+					setExpressionHistory(prev => [...prev, simplifiedExpr]);
+					setCurrentHistoryIndex(prev => prev + 1);
+
 					// Check if expression is fully solved
 					const nextOp = getNextOperation(simplifiedExpr);
 					const isSingleNumber = /^-?\d+(\.\d+)?$/.test(simplifiedExpr.replace(/\s+/g, ''));
@@ -1405,14 +1409,15 @@ const OrderOfOperations = () => {
 				transform: translateX(-50%);
 				background-color: #008545;
 				color: white;
-				padding: 4px 8px;
-				border-radius: 4px;
-				font-size: 12px;
+				padding: 2px 6px;
+				border-radius: 3px;
+				font-size: 11px;
 				white-space: nowrap;
 				opacity: 0;
 				visibility: hidden;
 				transition: all 0.2s ease;
 				pointer-events: none;
+				z-index: 50;
 			}
 			.operation-button:hover .tooltip {
 				opacity: 1;
@@ -1422,10 +1427,10 @@ const OrderOfOperations = () => {
 			.operation-button .tooltip::before {
 				content: '';
 				position: absolute;
-				top: -4px;
+				top: -3px;
 				left: 50%;
 				transform: translateX(-50%);
-				border-width: 0 4px 4px 4px;
+				border-width: 0 3px 3px 3px;
 				border-style: solid;
 				border-color: transparent transparent #008545 transparent;
 			}
@@ -1630,10 +1635,25 @@ const OrderOfOperations = () => {
 									>
 										<span className="expression-wrapper">
 											<span className="expression-content">
-												{formatExpression(displayedExpression).split(highlightedOperation || '').map((part, index, array) => (
-													<React.Fragment key={index}>
-														{part}
-														{index < array.length - 1 && highlightedOperation && (
+												{(() => {
+													const formattedExpr = formatExpression(displayedExpression);
+													if (!highlightedOperation) {
+														return formattedExpr;
+													}
+
+													// Find the index of the leftmost occurrence of the operation
+													const operationIndex = formattedExpr.indexOf(highlightedOperation);
+													if (operationIndex === -1) {
+														return formattedExpr;
+													}
+
+													// Split the expression into three parts: before, operation, and after
+													const before = formattedExpr.slice(0, operationIndex);
+													const after = formattedExpr.slice(operationIndex + highlightedOperation.length);
+
+													return (
+														<>
+															{before}
 															<span 
 																className={`highlighted-operation ${showOperationHighlight ? 'highlight' : ''} ${
 																	isHighlightedOperationShrinking ? 'shrinking' : 
@@ -1647,9 +1667,10 @@ const OrderOfOperations = () => {
 															>
 																{highlightedOperation}
 															</span>
-														)}
-													</React.Fragment>
-												))}
+															{after}
+														</>
+													);
+												})()}
 											</span>
 											{isSimplifying && !isHighlightedOperationShrinking && (
 												<span 
@@ -1696,7 +1717,7 @@ const OrderOfOperations = () => {
 															<div className="absolute left-[35%] top-0 opacity-0 grow-in" style={{ animationDelay: '3.5s' }}>
 																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-lg font-medium move-parenthesis-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).inParentheses ? 'active' : ''}`} style={{ animationDelay: '3.9s' }}>
 																	( )
-																	{!isPemdasAnimating && <span className="tooltip">Parentheses</span>}
+																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Parentheses</span>}
 																</button>
 															</div>
 														</div>
@@ -1713,7 +1734,7 @@ const OrderOfOperations = () => {
 															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '6.4s' }}>
 																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-sm font-medium move-exponent-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '^' ? 'active' : ''}`} style={{ animationDelay: '6.8s' }}>
 																	x<sup>n</sup>
-																	{!isPemdasAnimating && <span className="tooltip">Exponent</span>}
+																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Exponent</span>}
 																</button>
 															</div>
 														</div>
@@ -1730,7 +1751,7 @@ const OrderOfOperations = () => {
 															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '9.2s' }}>
 																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-lg font-medium move-multiply-divide-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '×÷' ? 'active' : ''}`} style={{ animationDelay: '9.6s' }}>
 																		×÷
-																	{!isPemdasAnimating && <span className="tooltip">Multiplication / Division</span>}
+																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Multiplication / Division</span>}
 																</button>
 															</div>
 														</div>
@@ -1758,7 +1779,7 @@ const OrderOfOperations = () => {
 															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '12.0s' }}>
 																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-lg font-medium move-add-subtract-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '+-' ? 'active' : ''}`} style={{ animationDelay: '12.4s' }}>
 																	+-
-																	{!isPemdasAnimating && <span className="tooltip">Addition / Subtraction</span>}
+																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Addition / Subtraction</span>}
 																</button>
 															</div>
 														</div>
