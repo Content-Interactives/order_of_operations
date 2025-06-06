@@ -47,6 +47,10 @@ const OrderOfOperations = () => {
 
 	// Add handleContinue function definition
 	const handleContinue = () => {
+		console.log('=== handleContinue Debug ===');
+		console.log('Current expression:', displayedExpression);
+		console.log('Current operation:', highlightedOperation);
+		
 		// Start animations
 		setIsContinueButtonShrinking(true);
 		setIsHighlightedOperationShrinking(true);
@@ -59,8 +63,12 @@ const OrderOfOperations = () => {
 		const currentOperation = highlightedOperation;
 		
 		// Calculate the simplified expression and result while we still have the operation
+		console.log('Calculating simplified expression for operation:', currentOperation);
 		const simplifiedExpr = getSimplifiedExpression(displayedExpression, currentOperation);
+		console.log('Simplified expression result:', simplifiedExpr);
+		
 		const operationResult = calculateOperationResult(currentOperation);
+		console.log('Operation result:', operationResult);
 		
 		// Store the operation result in state
 		setCurrentOperationResult(operationResult);
@@ -84,6 +92,7 @@ const OrderOfOperations = () => {
 
 		// Wait for shrink animation to complete before proceeding
 		setTimeout(() => {
+			console.log('Starting simplification process');
 			// Reset shrink state but keep the space occupied
 			setIsHighlightedOperationShrinking(false);
 			setIsHighlightedOperationVisible(false);
@@ -94,6 +103,7 @@ const OrderOfOperations = () => {
 				
 				// Wait for the simplified portion animation to complete before updating the entire expression
 				setTimeout(() => {
+					console.log('Updating expression to:', simplifiedExpr);
 					// Update expression and states
 					setDisplayedExpression(simplifiedExpr);
 					setIsSimplifying(false);
@@ -108,37 +118,52 @@ const OrderOfOperations = () => {
 					setCurrentHistoryIndex(prev => prev + 1);
 
 					// Check if expression is fully solved
+					console.log('Checking if expression is solved:', simplifiedExpr);
 					const nextOp = getNextOperation(simplifiedExpr);
+					console.log('Next operation:', nextOp);
 					const isSingleNumber = /^-?\d+(\.\d+)?$/.test(simplifiedExpr.replace(/\s+/g, ''));
+					console.log('Is single number:', isSingleNumber);
 					
 					if (nextOp === null && isSingleNumber) {
+						console.log('Expression is solved');
 						setShowOperationHighlight(false);
 						setHighlightedOperation(null);
 						setIsSolved(true);
 					} else {
 						// Set up next operation but don't show highlight yet
+						console.log('Setting up next operation');
 						const nextOperation = getLeftmostOperation(simplifiedExpr, nextOp);
+						console.log('Next operation details:', nextOperation);
 						
-						// Wait for expression to appear before showing highlight
-						setTimeout(() => {
-							// First set the operation without showing highlight
-							setHighlightedOperation(nextOperation.operation);
-							setIsLastInParentheses(nextOperation.isLastInParentheses);
-							
-							// Small delay to ensure operation is set
-							requestAnimationFrame(() => {
-								// Then show the highlight
-								setIsHighlightedOperationVisible(true);
-								setShowOperationHighlight(true);
-								setIsHighlightedOperationGrowing(true);
+						if (nextOperation) {
+							// Wait for expression to appear before showing highlight
+							setTimeout(() => {
+								console.log('Setting highlighted operation:', nextOperation.operation);
+								// First set the operation without showing highlight
+								setHighlightedOperation(nextOperation.operation);
+								setIsLastInParentheses(nextOperation.isLastInParentheses);
 								
-								// Show continue button after highlight is fully visible
-								setTimeout(() => {
-									setShowContinueButton(true);
-									setIsHighlightedOperationGrowing(false);
-								}, 500);
-							});
-						}, 800);
+								// Small delay to ensure operation is set
+								requestAnimationFrame(() => {
+									// Then show the highlight
+									setIsHighlightedOperationVisible(true);
+									setShowOperationHighlight(true);
+									setIsHighlightedOperationGrowing(true);
+									
+									// Show continue button after highlight is fully visible
+									setTimeout(() => {
+										setShowContinueButton(true);
+										setIsHighlightedOperationGrowing(false);
+									}, 500);
+								});
+							}, 800);
+						} else {
+							console.log('No next operation found, marking as solved');
+							// If no next operation is found, mark as solved
+							setShowOperationHighlight(false);
+							setHighlightedOperation(null);
+							setIsSolved(true);
+						}
 					}
 				}, 1000);
 			});
@@ -211,14 +236,26 @@ const OrderOfOperations = () => {
 			return { isValid: false, error: "Expression cannot be empty" };
 		}
 
-		// Check for operators at start or end
-		if (/^[+\-*/^]|[+\-*/^]$/.test(expr)) {
-			return { isValid: false, error: "Expression cannot start or end with an operator" };
+		// Check if the expression is just a single number (including negative)
+		if (/^-?\d+(?:\.\d+)?$/.test(expr.trim())) {
+			return { isValid: false, error: "Expression must contain at least one operation" };
 		}
 
-		// Check for consecutive operators
-		if (/[+\-*/^]{2,}/.test(expr)) {
-			return { isValid: false, error: "Cannot have consecutive operators" };
+		// Check for operators at start or end, but allow negative sign at start
+		if (/^[+*/^]|[+\-*/^]$/.test(expr)) {
+			return { isValid: false, error: "Expression cannot start with an operator (except -) or end with an operator" };
+		}
+
+		// Check for consecutive operators, but allow negative sign after operators
+		// This allows patterns like: 2*-1, 2/-1, 2^-1, but not 2++1, 2**1, etc.
+		if (/[+\-*/^][+*/^]|[+\-*/^][+\-*/^][+\-*/^]/.test(expr)) {
+			return { isValid: false, error: "Cannot have consecutive operators (except for a single negative sign after an operator)" };
+		}
+
+		// Check for invalid operator combinations
+		// This allows patterns like: 2*-1, 2/-1, 2^-1, but not 2++1, 2**1, etc.
+		if (/[+\-*/^][+*/^]/.test(expr)) {
+			return { isValid: false, error: "Invalid operator combination" };
 		}
 
 		// Check for nested exponents (e.g., 2^2^2)
@@ -265,11 +302,6 @@ const OrderOfOperations = () => {
 			return { isValid: false, error: "Unmatched opening parenthesis" };
 		}
 
-		// Check for invalid operator combinations
-		if (/[+\-*/^][+\-*/^]/.test(expr)) {
-			return { isValid: false, error: "Invalid operator combination" };
-		}
-
 		// Check for empty parentheses
 		if (/\(\s*\)/.test(expr)) {
 			return { isValid: false, error: "Empty parentheses are not allowed" };
@@ -290,6 +322,7 @@ const OrderOfOperations = () => {
 	};
 
 	const formatExpression = (expr) => {
+		
 		// First normalize decimal numbers (e.g., .2 -> 0.2, 2. -> 2)
 		let formatted = expr.replace(/(?<!\d)\.(\d+)/g, '0.$1')  // .2 -> 0.2
 			.replace(/(\d+)\.(?!\d)/g, '$1');  // 2. -> 2
@@ -300,7 +333,7 @@ const OrderOfOperations = () => {
 		// Convert exponents to superscript, including those on parenthesized expressions
 		// First pass: handle nested exponents
 		while (formatted.includes('^')) {
-			formatted = formatted.replace(/(\([^)]+\)|\d+(?:\.\d+)?)\^(\d+(?:\.\d+)?)/g, (match, base, exponent) => {
+			formatted = formatted.replace(/(\([^)]+\)|-?\d+(?:\.\d+)?)\^(\d+(?:\.\d+)?)/g, (match, base, exponent) => {
 				// Convert each digit of the exponent to superscript, including the decimal point
 				const superscriptExponent = exponent.split('').map(digit => {
 					const superscriptMap = {
@@ -321,8 +354,10 @@ const OrderOfOperations = () => {
 		
 		// Handle spacing around operators with more space
 		formatted = formatted
-			.replace(/(\d+(?:\.\d+)?)([+\-×÷])/g, '$1 $2 ') // Space after number before operator
-			.replace(/([+\-×÷])(\d+(?:\.\d+)?)/g, '$1 $2'); // Space after operator before number
+			.replace(/(-?\d+(?:\.\d+)?)([×÷])/g, '$1 $2 ') // Space after number before operator
+			.replace(/([×÷])(-?\d+(?:\.\d+)?)/g, '$1 $2') // Space after operator before number
+			.replace(/(-?\d+(?:\.\d+)?)([+\-])/g, '$1 $2 ') // Space after number before operator
+			.replace(/([+\-])(-?\d+(?:\.\d+)?)/g, '$1$2'); // No space after operator before number
 		
 		// Handle parentheses with consistent spacing
 		formatted = formatted
@@ -330,8 +365,8 @@ const OrderOfOperations = () => {
 			.replace(/\)/g, ')')  // Add space before closing parenthesis
 			.replace(/([+\-×÷])\s*\(/g, '$1 (') // Space before opening parenthesis
 			.replace(/\)\s*([+\-×÷])/g, ') $1') // Space after closing parenthesis
-			.replace(/(\d+)\s*\(/g, '$1 (') // Space before opening parenthesis after number
-			.replace(/\)\s*(\d+)/g, ') $1'); // Space after closing parenthesis before number
+			.replace(/(-?\d+)\s*\(/g, '$1 (') // Space before opening parenthesis after number
+			.replace(/\)\s*(-?\d+)/g, ') $1'); // Space after closing parenthesis before number
 		
 		// Clean up any multiple spaces
 		formatted = formatted
@@ -353,8 +388,9 @@ const OrderOfOperations = () => {
 			count += (expression.match(/\^/g) || []).length;
 			// Count multiplication/division
 			count += (expression.match(/[\*\/]/g) || []).length;
-			// Count addition/subtraction
-			count += (expression.match(/[\+\-]/g) || []).length;
+			// Count addition/subtraction, but not negative signs
+			// Look for + or - that follows a number or closing parenthesis
+			count += (expression.match(/(?<=[\d\)])\s*[+\-]/g) || []).length;
 			return count;
 		};
 
@@ -385,38 +421,44 @@ const OrderOfOperations = () => {
 		
 		// First check for operations within parentheses
 		const parenthesesMatches = formatted.match(/\([^()]+\)/g) || [];
+		
 		for (const match of parenthesesMatches) {
 			const innerExpr = match.slice(1, -1);
 			
 			// Check for exponents in the inner expression
-			if (/(\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(innerExpr)) {
+			if (/(-?\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(innerExpr)) {
 				return { type: 'exponents', inParentheses: true, expression: match };
 			}
 			
 			// Check for multiplication or division in the inner expression
-			const multDivMatch = innerExpr.match(/\d+(?:\.\d+)?\s*[×÷]\s*\d+(?:\.\d+)?/);
+			// Modified to better handle negative numbers
+			const multDivMatch = innerExpr.match(/(-?\d+(?:\.\d+)?)\s*[×÷]\s*(-?\d+(?:\.\d+)?)/);
 			if (multDivMatch) {
 				return { type: 'multiplication or division', inParentheses: true, expression: match };
 			}
 			
 			// Check for addition or subtraction in the inner expression
-			const addSubMatch = innerExpr.match(/\d+(?:\.\d+)?\s*[+\-−]\s*\d+(?:\.\d+)?/);
+			// Modified to better handle negative numbers and ensure proper spacing
+			const addSubMatch = innerExpr.match(/(-?\d+(?:\.\d+)?)\s*[+\-−]\s*(-?\d+(?:\.\d+)?)/);
 			if (addSubMatch) {
 				return { type: 'addition or subtraction', inParentheses: true, expression: match };
 			}
 		}
 		
 		// If no operations in parentheses, check the main expression
-		if (/(\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(formatted)) {
+		if (/(-?\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(formatted)) {
 			return { type: 'exponents', inParentheses: false, expression: formatted };
 		}
 		
-		const multDivMatch = formatted.match(/\d+(?:\.\d+)?\s*[×÷]\s*\d+(?:\.\d+)?/);
+		// Check for multiplication or division in the main expression
+		const multDivMatch = formatted.match(/(-?\d+(?:\.\d+)?)\s*[×÷]\s*(-?\d+(?:\.\d+)?)/);
 		if (multDivMatch) {
 			return { type: 'multiplication or division', inParentheses: false, expression: formatted };
 		}
 		
-		const addSubMatch = formatted.match(/\d+(?:\.\d+)?\s*[+\-−]\s*\d+(?:\.\d+)?/);
+		// Check for addition or subtraction in the main expression
+		// Modified to better handle negative numbers and ensure proper spacing
+		const addSubMatch = formatted.match(/(-?\d+(?:\.\d+)?)\s*[+\-−]\s*([+\-−]?\d+(?:\.\d+)?)/);
 		if (addSubMatch) {
 			return { type: 'addition or subtraction', inParentheses: false, expression: formatted };
 		}
@@ -439,23 +481,22 @@ const OrderOfOperations = () => {
 							   (innerExpr.match(/[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/g) || []).length;
 			
 			if (operation.type === 'exponents') {
-				match = innerExpr.match(/(\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/);
+				match = innerExpr.match(/(-?\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/);
 			} else if (operation.type === 'multiplication or division') {
-				match = innerExpr.match(/\d+(?:\.\d+)?\s*[×÷]\s*\d+(?:\.\d+)?/);
+				match = innerExpr.match(/(-?\d+(?:\.\d+)?)\s*[×÷]\s*(-?\d+(?:\.\d+)?)/);
 			} else if (operation.type === 'addition or subtraction') {
-				match = innerExpr.match(/\d+(?:\.\d+)?\s*[+\-−]\s*\d+(?:\.\d+)?/);
+				match = innerExpr.match(/(-?\d+(?:\.\d+)?)\s*[+\-−]\s*(-?\d+(?:\.\d+)?)/);
 			}
 			
 			if (match) {
 				// If this is the last operation, return the full parenthesized expression
 				if (remainingOps === 1) {
 					return {
-						operation: operation.expression,  // Return the full parenthesized expression
+						operation: operation.expression,
 						isLastInParentheses: true,
 						fullParentheses: operation.expression
 					};
 				}
-				// Otherwise return just the operation
 				return {
 					operation: match[0],
 					isLastInParentheses: false,
@@ -466,11 +507,11 @@ const OrderOfOperations = () => {
 			// Original logic for operations outside parentheses
 			let match = null;
 			if (operation.type === 'exponents') {
-				match = formatted.match(/(\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/);
+				match = formatted.match(/(-?\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/);
 			} else if (operation.type === 'multiplication or division') {
-				match = formatted.match(/\d+(?:\.\d+)?\s*[×÷]\s*\d+(?:\.\d+)?/);
+				match = formatted.match(/(-?\d+(?:\.\d+)?)\s*[×÷]\s*(-?\d+(?:\.\d+)?)/);
 			} else if (operation.type === 'addition or subtraction') {
-				match = formatted.match(/\d+(?:\.\d+)?\s*[+\-−]\s*\d+(?:\.\d+)?/);
+				match = formatted.match(/(-?\d+(?:\.\d+)?)\s*[+\-−]\s*(-?\d+(?:\.\d+)?)/);
 			}
 			
 			if (match) {
@@ -487,22 +528,39 @@ const OrderOfOperations = () => {
 
 	// Add new function to calculate the result of an operation
 	const calculateOperationResult = (operation) => {
+		console.log('=== calculateOperationResult Debug ===');
+		console.log('Input operation:', operation);
+		
 		// If the operation is in parentheses, evaluate all operations inside
 		if (operation.startsWith('(') && operation.endsWith(')')) {
+			console.log('Processing parenthesized operation');
 			const innerExpr = operation.slice(1, -1);
+			console.log('Inner expression:', innerExpr);
+			
 			const formattedInner = innerExpr
 				.replace('×', '*')
 				.replace('÷', '/')
 				.replace('−', '-')
 				.replace(/\s+/g, '');
-			const result = evaluateExpression(formattedInner);
-			// Format large numbers using scientific notation
-			return formatLargeNumber(result);
+			console.log('Formatted inner expression:', formattedInner);
+			
+			try {
+				const result = evaluateExpression(formattedInner);
+				console.log('Evaluation result:', result);
+				// Format large numbers using scientific notation
+				const formattedResult = formatLargeNumber(result);
+				console.log('Formatted result:', formattedResult);
+				return formattedResult;
+			} catch (error) {
+				console.error('Error evaluating expression:', error);
+				return null;
+			}
 		}
 
 		// Handle exponents first
 		const exponentMatch = operation.match(/([\d\.\)]+)([⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+)/);
 		if (exponentMatch) {
+			console.log('Processing exponent operation');
 			const base = exponentMatch[1];
 			let baseValue = base;
 			if (base.startsWith('(') && base.endsWith(')')) {
@@ -527,10 +585,13 @@ const OrderOfOperations = () => {
 			.replace('÷', '/')
 			.replace('−', '-')
 			.replace(/\s+/g, '');
+		console.log('Standard operation:', standardOperation);
 		
-		// Extract numbers and operator, now handling decimals
-		const numbers = standardOperation.match(/\d+(?:\.\d+)?/g).map(Number);
+		// Extract numbers and operator, now handling negative numbers properly
+		const numbers = standardOperation.match(/-?\d+(?:\.\d+)?/g).map(Number);
+		console.log('Extracted numbers:', numbers);
 		const operator = standardOperation.match(/[\+\-\*\/]/)[0];
+		console.log('Extracted operator:', operator);
 		
 		let result;
 		switch (operator) {
@@ -547,11 +608,15 @@ const OrderOfOperations = () => {
 				result = numbers[0] / numbers[1];
 				break;
 			default:
+				console.log('Invalid operator');
 				return null;
 		}
+		console.log('Calculation result:', result);
 		
 		// Format large numbers using scientific notation
-		return formatLargeNumber(result);
+		const formattedResult = formatLargeNumber(result);
+		console.log('Final formatted result:', formattedResult);
+		return formattedResult;
 	};
 
 	// Helper function to format large numbers
@@ -572,11 +637,20 @@ const OrderOfOperations = () => {
 
 	// Add function to evaluate an expression following PEMDAS
 	const evaluateExpression = (expr) => {
+		console.log('=== evaluateExpression Debug ===');
+		console.log('Input expression:', expr);
+		
 		// Remove all spaces
 		expr = expr.replace(/\s+/g, '');
+		console.log('After removing spaces:', expr);
+		
+		// Handle negative signs before parentheses by converting to multiplication by -1
+		expr = expr.replace(/-\s*\(/g, '-1*(');
+		console.log('After handling negative signs:', expr);
 		
 		// Helper function to evaluate a single operation
 		const evaluateOperation = (num1, op, num2) => {
+			console.log('Evaluating operation:', num1, op, num2);
 			const n1 = Number(num1);
 			const n2 = Number(num2);
 			let result;
@@ -598,14 +672,17 @@ const OrderOfOperations = () => {
 					result = n1 - n2;
 					break;
 				default:
+					console.log('Invalid operator in evaluateOperation');
 					return null;
 			}
 			
+			console.log('Operation result:', result);
 			return Number.isInteger(result) ? result : Number(result.toFixed(2));
 		};
 		
 		// Helper function to evaluate an expression without parentheses
 		const evaluateWithoutParentheses = (expression) => {
+			console.log('Evaluating without parentheses:', expression);
 			let result = expression;
 			
 			// Convert superscript numbers back to regular numbers with ^
@@ -619,6 +696,7 @@ const OrderOfOperations = () => {
 				const regularExp = exp.split('').map(digit => superscriptMap[digit]).join('');
 				return `${base}^${regularExp}`;
 			});
+			console.log('After superscript conversion:', result);
 			
 			// Handle exponents from right to left (right-associative)
 			while (result.includes('^')) {
@@ -643,6 +721,7 @@ const OrderOfOperations = () => {
 				result = result.slice(0, lastCaretIndex - base.length) + 
 						answer + 
 						result.slice(lastCaretIndex + 1 + exp.length);
+				console.log('After exponent evaluation:', result);
 			}
 			
 			// Handle multiplication and division
@@ -650,79 +729,127 @@ const OrderOfOperations = () => {
 				result = result.replace(/(\d+(?:\.\d+)?)([\*\/])(\d+(?:\.\d+)?)/, (match, num1, op, num2) => {
 					return evaluateOperation(num1, op, num2);
 				});
+				console.log('After multiplication/division:', result);
 			}
 			
 			// Handle addition and subtraction
-			while (/[\+\-]/.test(result)) {
-				result = result.replace(/(\d+(?:\.\d+)?)([\+\-])(\d+(?:\.\d+)?)/, (match, num1, op, num2) => {
-					return evaluateOperation(num1, op, num2);
-				});
+			while (/[+\-]/.test(result)) {
+				// Find the leftmost operation
+				const match = result.match(/(\d+(?:\.\d+)?)([+\-])(\d+(?:\.\d+)?)/);
+				if (!match) break;
+				const [fullMatch, num1, op, num2] = match;
+				const answer = evaluateOperation(num1, op, num2);
+				result = result.replace(fullMatch, answer);
+				console.log(`After ${op} operation:`, result);
 			}
 			
+			console.log('Final result without parentheses:', result);
 			return result;
 		};
 		
 		// Handle parentheses first
 		while (expr.includes('(')) {
 			expr = expr.replace(/\(([^()]+)\)/g, (match, innerExpr) => {
-				return evaluateWithoutParentheses(innerExpr);
+				console.log('Evaluating parenthesized expression:', innerExpr);
+				const result = evaluateWithoutParentheses(innerExpr);
+				console.log('Parenthesized expression result:', result);
+				return result;
 			});
+			console.log('After parentheses evaluation:', expr);
 		}
 		
 		// Evaluate the remaining expression
-		return Number(evaluateWithoutParentheses(expr));
+		const finalResult = Number(evaluateWithoutParentheses(expr));
+		console.log('Final evaluation result:', finalResult);
+		return finalResult;
 	};
 
 	// Add function to get the simplified expression
 	const getSimplifiedExpression = (expr, operation) => {
+		console.log('=== getSimplifiedExpression Debug ===');
+		console.log('Input expression:', expr);
+		console.log('Input operation:', operation);
+		
 		const result = calculateOperationResult(operation);
+		console.log('Operation result:', result);
 		
 		if (result === null) {
+			console.log('No result calculated, returning original expression');
 			return expr;
 		}
 		
 		// Get the formatted version of the expression
 		const formattedExpr = formatExpression(expr);
+		console.log('Formatted expression:', formattedExpr);
 		
 		// If the operation is in parentheses, we need to handle the replacement carefully
 		if (operation.startsWith('(') && operation.endsWith(')')) {
+			console.log('Handling parenthesized operation');
 			// Get the formatted version of the operation (this is what's displayed in the UI)
 			const formattedOperation = formatExpression(operation);
+			console.log('Formatted operation:', formattedOperation);
 			
 			// Check if the operation has an exponent
 			const hasExponent = /\)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(formattedOperation);
+			console.log('Has exponent:', hasExponent);
 			
 			if (hasExponent) {
 				// For parenthesized expressions with exponents, we need to handle the entire expression
 				// including the exponent
 				const operationIndex = formattedExpr.indexOf(formattedOperation);
+				console.log('Operation index:', operationIndex);
 				if (operationIndex !== -1) {
 					// Replace the entire operation including the exponent
 					const simplified = formattedExpr.slice(0, operationIndex) + 
 									result.toString() + 
 									formattedExpr.slice(operationIndex + formattedOperation.length);
+					console.log('Simplified with exponent:', simplified);
 					
 					// Ensure we don't have any double spaces or spaces around operators
 					const finalResult = formatExpression(simplified)
 						.replace(/\s+/g, ' ')  // Replace multiple spaces with single space
 						.replace(/\s*([+\-×÷])\s*/g, ' $1 ')  // Ensure spaces around operators
 						.trim();
+					console.log('Final result with exponent:', finalResult);
 					
 					return finalResult;
 				}
 			} else {
-				// For regular parenthesized expressions without exponents
+				// For regular parenthesized expressions
 				const operationIndex = formattedExpr.indexOf(formattedOperation);
+				console.log('Operation index:', operationIndex);
 				if (operationIndex !== -1) {
-					// Replace the operation with the result
-					const simplified = formattedExpr.slice(0, operationIndex) + 
+					// Get the character before the operation
+					const prevChar = formattedExpr.charAt(operationIndex - 1);
+					console.log('Previous character:', prevChar);
+					
+					let simplified;
+					// If the result is negative and there's a subtraction operator before it
+					if (result < 0 && prevChar === '-') {
+						// Replace the subtraction and the operation with addition of the positive result
+						simplified = formattedExpr.slice(0, operationIndex - 1) + 
+									' + ' + 
+									Math.abs(result).toString() + 
+									formattedExpr.slice(operationIndex + formattedOperation.length);
+					} else if (result < 0) {
+						// If result is negative but no subtraction before it, keep the negative sign
+						simplified = formattedExpr.slice(0, operationIndex) + 
 									result.toString() + 
 									formattedExpr.slice(operationIndex + formattedOperation.length);
+					} else {
+						// Normal replacement for positive results
+						simplified = formattedExpr.slice(0, operationIndex) + 
+									result.toString() + 
+									formattedExpr.slice(operationIndex + formattedOperation.length);
+					}
 					
 					// Ensure we don't have any double spaces or spaces around operators
 					const finalResult = formatExpression(simplified)
 						.replace(/\s+/g, ' ')  // Replace multiple spaces with single space
 						.replace(/\s*([+\-×÷])\s*/g, ' $1 ')  // Ensure spaces around operators
+						.replace(/\s*-\s*-/g, ' + ')  // Replace double negatives with plus
+						.replace(/\s*\+\s*-/g, ' - ')  // Handle plus followed by negative
+						.replace(/\s*-\s*\+/g, ' - ')  // Handle negative followed by plus
 						.trim();
 					
 					return finalResult;
@@ -732,7 +859,9 @@ const OrderOfOperations = () => {
 		
 		// For non-parenthesized operations, use the original replacement logic
 		const formattedOperation = formatExpression(operation);
+		console.log('Formatted operation (non-parenthesized):', formattedOperation);
 		const simplified = formattedExpr.replace(formattedOperation, ` ${result} `).trim();
+		console.log('Simplified (non-parenthesized):', simplified);
 		
 		// After any simplification, check for and remove unnecessary parentheses
 		const finalResult = formatExpression(simplified)
@@ -740,6 +869,7 @@ const OrderOfOperations = () => {
 			.replace(/\s+/g, ' ')  // Replace multiple spaces with single space
 			.replace(/\s*([+\-×÷])\s*/g, ' $1 ')  // Ensure spaces around operators
 			.trim();
+		console.log('Final result (non-parenthesized):', finalResult);
 		
 		return finalResult;
 	};
