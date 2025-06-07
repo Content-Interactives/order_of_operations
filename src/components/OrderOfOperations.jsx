@@ -306,10 +306,24 @@ const OrderOfOperations = () => {
 	};
 
 	const formatExpression = (expr) => {
-		
 		// First normalize decimal numbers (e.g., .2 -> 0.2, 2. -> 2)
 		let formatted = expr.replace(/(?<!\d)\.(\d+)/g, '0.$1')  // .2 -> 0.2
 			.replace(/(\d+)\.(?!\d)/g, '$1');  // 2. -> 2
+		
+		// Recursively remove unnecessary parentheses until no more can be removed
+		let previousFormatted;
+		do {
+			previousFormatted = formatted;
+			formatted = formatted
+				// Remove parentheses around single numbers
+				.replace(/\(\s*(\d+(?:\.\d+)?)\s*\)/g, '$1')  // Remove (2) -> 2
+				.replace(/\(\s*-\s*(\d+(?:\.\d+)?)\s*\)/g, '-$1')  // Remove (-2) -> -2
+				// Remove parentheses around expressions that don't need them
+				.replace(/\(\s*([^()]+?)\s*\)\s*([×÷+\-])/g, '$1 $2')  // Remove (2+3) + 4 -> 2+3 + 4
+				.replace(/([×÷+\-])\s*\(\s*([^()]+?)\s*\)/g, '$1 $2')  // Remove 2 + (3+4) -> 2 + 3+4
+				// Remove nested parentheses around the same expression
+				.replace(/\(\s*\(\s*([^()]+?)\s*\)\s*\)/g, '($1)');  // Remove ((2+3)) -> (2+3)
+		} while (formatted !== previousFormatted);
 		
 		// Then replace * and / with × and ÷
 		formatted = formatted.replace(/\*/g, '×').replace(/\//g, '÷');
