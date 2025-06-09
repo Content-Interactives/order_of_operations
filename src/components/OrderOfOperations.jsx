@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button } from '../../../annuity/src/components/ui/button';
+import { Button } from "../components/ui/button";
 
 const OrderOfOperations = () => {
 	const [currentStep, setCurrentStep] = useState(1);
