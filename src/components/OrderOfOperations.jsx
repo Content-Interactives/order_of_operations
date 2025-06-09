@@ -54,7 +54,8 @@ const OrderOfOperations = () => {
 		setIsHighlightedOperationGrowing(false);
 		setNavigationDirection('forward');
 		setIsGlowActive(false);
-		setIsContinueGlowActive(false);
+		// Remove this line to keep the orbit animation active
+		// setIsContinueGlowActive(false);
 
 		// Store the current operation before we start changing states
 		const currentOperation = highlightedOperation;
@@ -1444,7 +1445,7 @@ const OrderOfOperations = () => {
 				transform: scale(1);
 			}
 			.progress-circle.active {
-				background-color: #008545;
+				background-color: #7973E9;
 			}
 			.progress-circle.active-new {
 					animation: progress-circle-active 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
@@ -1458,7 +1459,7 @@ const OrderOfOperations = () => {
 					transform: scale(1.3);
 				}
 				100% { 
-					background-color: #008545;
+					background-color: #7973E9;
 					transform: scale(1.2);
 				}
 			}
@@ -1467,7 +1468,7 @@ const OrderOfOperations = () => {
 			}
 			@keyframes progress-circle-shrink {
 				0% { 
-					background-color: #008545;
+					background-color: #7973E9;
 					transform: scale(1.2);
 				}
 				50% {
@@ -1488,9 +1489,9 @@ const OrderOfOperations = () => {
 				animation: grow-in 0.4s cubic-bezier(0.4,0,0.2,1) both;
 			}
 			.operation-btn:hover:not(.red-glow):not(.green-glow) {
-				border-color: #008545 !important;
-				background: #e6f4ea !important;
-				color: #008545 !important;
+				border-color: #7973E9 !important;
+				background: #f0f0ff !important;
+				color: #7973E9 !important;
 				cursor: default !important;
 			}
 			.red-glow {
@@ -1533,7 +1534,7 @@ const OrderOfOperations = () => {
 			}
 			@keyframes highlight {
 				0% { color: inherit; }
-				100% { color: #008545; }
+				100% { color: #7973E9; }
 			}
 			.highlight {
 				animation: highlight 0.3s cubic-bezier(0.4,0,0.2,1) forwards;
@@ -1599,8 +1600,8 @@ const OrderOfOperations = () => {
 				position: relative;
 			}
 			.operation-button.active {
-				background-color: #008545 !important;
-				border-color: #008545 !important;
+				background-color: #7973E9 !important;
+				border-color: #7973E9 !important;
 				color: white !important;
 				cursor: default !important;
 			}
@@ -1609,7 +1610,7 @@ const OrderOfOperations = () => {
 				bottom: -25px;
 				left: 50%;
 				transform: translateX(-50%);
-				background-color: #008545;
+				background-color: #7973E9;
 				color: white;
 				padding: 2px 6px;
 				border-radius: 3px;
@@ -1634,7 +1635,7 @@ const OrderOfOperations = () => {
 				transform: translateX(-50%);
 				border-width: 0 3px 3px 3px;
 				border-style: solid;
-				border-color: transparent transparent #008545 transparent;
+				border-color: transparent transparent #7973E9 transparent;
 			}
 			.nav-button {
 				transition: all 0.2s ease;
@@ -1744,7 +1745,7 @@ const OrderOfOperations = () => {
 			<div className="w-[500px] mx-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.05)] bg-white rounded-lg select-none">
 				<div className="p-4">
 					<div className="flex justify-between items-center mb-2">
-						<h2 className="text-[#008545] text-sm font-medium select-none">Order of Operations Explorer</h2>
+						<h2 className="text-[#4E48CC] text-sm font-medium select-none">Order of Operations Explorer</h2>
 						<div className="flex gap-2">
 						</div>
 					</div>
@@ -1777,7 +1778,7 @@ const OrderOfOperations = () => {
 					</div>
 
 					<div className="mt-2 space-y-4">
-						<div className={`w-full min-h-[200px] p-2 bg-white border border-[#008545]/30 rounded-md flex justify-center items-center relative`}> 
+						<div className={`w-full min-h-[200px] p-2 bg-white border border-[#7973E9]/30 rounded-md flex justify-center items-center relative`}> 
 							{!showPlaceholder && !isPemdasAnimating && isPemdasAnimationComplete && (
 								<div className="w-full flex flex-col gap-2 items-center justify-end absolute left-0 bottom-0 pb-3">
 									{/* Progress Bar with Navigation */}
@@ -1914,11 +1915,11 @@ const OrderOfOperations = () => {
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-up-after-down" style={{ animationDelay: '1.8s' }}>
 															<div className="shrink-out" style={{ animationDelay: '3.1s' }}>
-																<span className="text-[#008545] font-bold text-2xl">P</span>
-																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '2.4s' }}>arentheses</span>
+																<span className="text-[#7973E9] font-bold text-2xl">P</span>
+																<span className="text-[#7973E9] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '2.4s' }}>arentheses</span>
 															</div>
 															<div className="absolute left-[35%] top-0 opacity-0 grow-in" style={{ animationDelay: '3.5s' }}>
-																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-lg font-medium move-parenthesis-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).inParentheses ? 'active' : ''}`} style={{ animationDelay: '3.9s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#7973E9]/10 text-[#7973E9] rounded-md border border-[#7973E9]/30 text-lg font-medium move-parenthesis-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).inParentheses ? 'active' : ''}`} style={{ animationDelay: '3.9s' }}>
 																	( )
 																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Parentheses</span>}
 																</button>
@@ -1931,11 +1932,11 @@ const OrderOfOperations = () => {
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-exponent" style={{ animationDelay: '4.6s' }}>
 															<div className="shrink-out" style={{ animationDelay: '6.0s' }}>
-																<span className="text-[#008545] font-bold text-2xl">E</span>
-																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '5.2s' }}>xponent</span>
+																<span className="text-[#7973E9] font-bold text-2xl">E</span>
+																<span className="text-[#7973E9] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '5.2s' }}>xponent</span>
 															</div>
 															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '6.4s' }}>
-																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-sm font-medium move-exponent-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '^' ? 'active' : ''}`} style={{ animationDelay: '6.8s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#7973E9]/10 text-[#7973E9] rounded-md border border-[#7973E9]/30 text-sm font-medium move-exponent-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '^' ? 'active' : ''}`} style={{ animationDelay: '6.8s' }}>
 																	x<sup>n</sup>
 																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Exponent</span>}
 																</button>
@@ -1948,11 +1949,11 @@ const OrderOfOperations = () => {
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-multiplication" style={{ animationDelay: '7.5s' }}>
 															<div className="shrink-out" style={{ animationDelay: '8.8s' }}>
-																<span className="text-[#008545] font-bold text-2xl">M</span>
-																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '8.0s' }}>ultiplication</span>
+																<span className="text-[#7973E9] font-bold text-2xl">M</span>
+																<span className="text-[#7973E9] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '8.0s' }}>ultiplication</span>
 															</div>
 															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '9.2s' }}>
-																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-lg font-medium move-multiply-divide-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '×÷' ? 'active' : ''}`} style={{ animationDelay: '9.6s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#7973E9]/10 text-[#7973E9] rounded-md border border-[#7973E9]/30 text-lg font-medium move-multiply-divide-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '×÷' ? 'active' : ''}`} style={{ animationDelay: '9.6s' }}>
 																		×÷
 																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Multiplication / Division</span>}
 																</button>
@@ -1965,8 +1966,8 @@ const OrderOfOperations = () => {
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-division" style={{ animationDelay: '7.5s' }}>
 															<div className="shrink-out" style={{ animationDelay: '8.8s' }}>
-																<span className="text-[#008545] font-bold text-2xl">D</span>
-																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '8.0s' }}>ivision</span>
+																<span className="text-[#7973E9] font-bold text-2xl">D</span>
+																<span className="text-[#7973E9] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '8.0s' }}>ivision</span>
 															</div>
 														</div>
 													</div>
@@ -1976,11 +1977,11 @@ const OrderOfOperations = () => {
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-addition" style={{ animationDelay: '10.3s' }}>
 															<div className="shrink-out" style={{ animationDelay: '11.6s' }}>
-																<span className="text-[#008545] font-bold text-2xl">A</span>
-																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.8s' }}>ddition</span>
+																<span className="text-[#7973E9] font-bold text-2xl">A</span>
+																<span className="text-[#7973E9] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.8s' }}>ddition</span>
 															</div>
 															<div className="absolute left-[35%] -translate-x-1/2 top-0 opacity-0 grow-in" style={{ animationDelay: '12.0s' }}>
-																<button className={`w-10 h-10 flex items-center justify-center bg-[#008545]/10 text-[#008545] rounded-md border border-[#008545]/30 text-lg font-medium move-add-subtract-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '+-' ? 'active' : ''}`} style={{ animationDelay: '12.4s' }}>
+																<button className={`w-10 h-10 flex items-center justify-center bg-[#7973E9]/10 text-[#7973E9] rounded-md border border-[#7973E9]/30 text-lg font-medium move-add-subtract-button operation-button ${getCurrentPemdasStep(highlightedOperation, isLastInParentheses).current === '+-' ? 'active' : ''}`} style={{ animationDelay: '12.4s' }}>
 																	+-
 																	{!isPemdasAnimating && <span className="tooltip absolute left-[35%] -translate-x-1/2 bottom-[-25px] text-xs">Addition / Subtraction</span>}
 																</button>
@@ -1993,8 +1994,8 @@ const OrderOfOperations = () => {
 													<div className="relative inline-block move-down" style={{ animationDelay: '1.2s' }}>
 														<div className="move-subtraction" style={{ animationDelay: '10.3s' }}>
 															<div className="shrink-out" style={{ animationDelay: '11.6s' }}>
-																<span className="text-[#008545] font-bold text-2xl">S</span>
-																<span className="text-[#008545] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.8s' }}>ubtraction</span>
+																<span className="text-[#7973E9] font-bold text-2xl">S</span>
+																<span className="text-[#7973E9] font-bold text-2xl opacity-0 fade-in" style={{ animationDelay: '10.8s' }}>ubtraction</span>
 															</div>
 														</div>
 													</div>
