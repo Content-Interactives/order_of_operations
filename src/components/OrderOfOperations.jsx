@@ -54,8 +54,6 @@ const OrderOfOperations = () => {
 		setIsHighlightedOperationGrowing(false);
 		setNavigationDirection('forward');
 		setIsGlowActive(false);
-		// Remove this line to keep the orbit animation active
-		// setIsContinueGlowActive(false);
 
 		// Store the current operation before we start changing states
 		const currentOperation = highlightedOperation;
@@ -1598,6 +1596,7 @@ const OrderOfOperations = () => {
 				transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
 				cursor: default !important;
 				position: relative;
+				z-index: 2;
 			}
 			.operation-button.active {
 				background-color: #7973E9 !important;
@@ -1638,9 +1637,11 @@ const OrderOfOperations = () => {
 				border-color: transparent transparent #7973E9 transparent;
 			}
 			.nav-button {
-				transition: all 0.2s ease;
-				opacity: 0.7;
+				opacity: 1;
 				cursor: default !important;
+				position: relative;
+				z-index: 2;
+				outline: 2px white solid;
 			}
 			.nav-button:hover {
 				opacity: 1;
@@ -1650,6 +1651,7 @@ const OrderOfOperations = () => {
 				opacity: 0.3;
 				cursor: not-allowed !important;
 			}
+
 			.expression-wrapper {
 				position: absolute;
 				transform: translateX(-50%);
@@ -1733,6 +1735,39 @@ const OrderOfOperations = () => {
 				animation: rotating 3s linear infinite;  /* Keep the same speed as non-hover */
 			}
 
+			/* Circular Orbit Animation for Nav Buttons */
+			.nav-button-orbit {
+				position: absolute;
+				inset: -4px;
+				border-radius: 50%;
+				background: conic-gradient(
+					from var(--r),
+					transparent 0%,
+					rgb(0, 255, 132) 2%,
+					rgb(0, 214, 111) 8%,
+					rgb(0, 174, 90) 12%,
+					rgb(0, 133, 69) 14%,
+					transparent 15%
+				);
+				animation: rotating 3s linear infinite;
+				z-index: 0;
+			}
+
+			.nav-button-orbit::before {
+				content: "";
+				position: absolute;
+				inset: 2px;
+				background: transparent;
+				border-radius: 50%;
+				z-index: 0;
+			}
+
+			/* Ensure SVG icon is above the orbit */
+			.nav-button svg {
+				position: relative;
+				z-index: 1;
+			}
+
 			@keyframes rotating {
 				0% {
 					--r: 0deg;
@@ -1784,14 +1819,34 @@ const OrderOfOperations = () => {
 									{/* Progress Bar with Navigation */}
 									{totalSteps > 0 && (
 										<div className={`flex items-center gap-4 relative z-50 ${isBigShrinking ? 'shrink-out' : 'grow-in'}`}>
-											<button
-												onClick={() => handleNavigateHistory('back')}
-												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/10 text-[#008545] hover:bg-[#008545]/20 transition-all duration-200 relative z-50 ${!showNavigationButtons || !isSolved || currentHistoryIndex <= 0 ? 'invisible pointer-events-none' : ''} ${leftButtonVisible ? 'grow-in' : ''}`}
+											{/* Back Nav Button with Orbit */}
+											<div
+												className="nav-orbit-wrapper"
+												style={{
+													position: 'relative',
+													width: '32px',
+													height: '32px',
+													display: 'flex',
+													alignItems: 'center',
+													justifyContent: 'center',
+													visibility: showNavigationButtons && isSolved && currentHistoryIndex > 0 && leftButtonVisible ? 'visible' : 'hidden',
+													opacity: showNavigationButtons && isSolved && currentHistoryIndex > 0 && leftButtonVisible ? 1 : 0,
+													pointerEvents: showNavigationButtons && isSolved && currentHistoryIndex > 0 && leftButtonVisible ? 'auto' : 'none',
+													transition: 'opacity 0.2s ease',
+												}}
 											>
-												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-													<path d="M15 18l-6-6 6-6"/>
-												</svg>
-											</button>
+												<div className="nav-button-orbit"></div>
+												{/* Mask to hide orbit under button */}
+												<div style={{ position: 'absolute', width: '32px', height: '32px', borderRadius: '50%', background: 'white', zIndex: 1 }}></div>
+												<button
+													onClick={() => handleNavigateHistory('back')}
+													className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/20 text-[#008545] hover:bg-[#008545]/30 relative z-50 grow-in`}
+												>
+													<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+														<path d="M15 18l-6-6 6-6"/>
+													</svg>
+												</button>
+											</div>
 											<div className="flex gap-2">
 												{[...Array(totalSteps + 1)].map((_, index) => {
 													const isActive = index + 1 <= currentStep;
@@ -1814,14 +1869,34 @@ const OrderOfOperations = () => {
 													);
 												})}
 											</div>
-											<button
-												onClick={() => handleNavigateHistory('forward')}
-												className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/10 text-[#008545] hover:bg-[#008545]/20 transition-all duration-200 relative z-50 ${!showNavigationButtons || !isSolved || currentHistoryIndex >= expressionHistory.length - 1 ? 'invisible pointer-events-none' : ''}`}
+											{/* Forward Nav Button with Orbit */}
+											<div
+												className="nav-orbit-wrapper"
+												style={{
+													position: 'relative',
+													width: '32px',
+													height: '32px',
+													display: 'flex',
+													alignItems: 'center',
+													justifyContent: 'center',
+													visibility: showNavigationButtons && isSolved && currentHistoryIndex < expressionHistory.length - 1 ? 'visible' : 'hidden',
+													opacity: showNavigationButtons && isSolved && currentHistoryIndex < expressionHistory.length - 1 ? 1 : 0,
+													pointerEvents: showNavigationButtons && isSolved && currentHistoryIndex < expressionHistory.length - 1 ? 'auto' : 'none',
+													transition: 'opacity 0.2s ease',
+												}}
 											>
-												<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-													<path d="M9 18l6-6-6-6"/>
-												</svg>
-											</button>
+												<div className="nav-button-orbit"></div>
+												{/* Mask to hide orbit under button */}
+												<div style={{ position: 'absolute', width: '32px', height: '32px', borderRadius: '50%', background: 'white', zIndex: 1 }}></div>
+												<button
+													onClick={() => handleNavigateHistory('forward')}
+													className={`nav-button w-8 h-8 flex items-center justify-center rounded-full bg-[#008545]/20 text-[#008545] hover:bg-[#008545]/30 relative z-50`}
+												>
+													<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+														<path d="M9 18l6-6-6-6"/>
+													</svg>
+												</button>
+											</div>
 										</div>
 									)}
 								</div>
