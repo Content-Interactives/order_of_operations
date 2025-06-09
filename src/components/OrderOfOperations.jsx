@@ -503,28 +503,38 @@ const OrderOfOperations = () => {
 		const formatted = formatExpression(expr);
 		
 		// First check for operations within parentheses
-		const parenthesesMatches = formatted.match(/\([^()]+\)/g) || [];
-		
-		for (const match of parenthesesMatches) {
-			const innerExpr = match.slice(1, -1);
-			
-			// Check for exponents in the inner expression
-			if (/(-?\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(innerExpr)) {
-				return { type: 'exponents', inParentheses: true, expression: match };
+		// Find the leftmost set of parentheses
+		const leftmostParenIndex = formatted.indexOf('(');
+		if (leftmostParenIndex !== -1) {
+			// Find the matching closing parenthesis
+			let depth = 1;
+			let endIndex = leftmostParenIndex + 1;
+			while (depth > 0 && endIndex < formatted.length) {
+				if (formatted[endIndex] === '(') depth++;
+				if (formatted[endIndex] === ')') depth--;
+				endIndex++;
 			}
 			
-			// Check for multiplication or division in the inner expression
-			// Modified to better handle negative numbers
-			const multDivMatch = innerExpr.match(/(-?\d+(?:\.\d+)?)\s*[×÷]\s*(-?\d+(?:\.\d+)?)/);
-			if (multDivMatch) {
-				return { type: 'multiplication or division', inParentheses: true, expression: match };
-			}
-			
-			// Check for addition or subtraction in the inner expression
-			// Modified to better handle negative numbers and ensure proper spacing
-			const addSubMatch = innerExpr.match(/(-?\d+(?:\.\d+)?)\s*[+\-−]\s*(-?\d+(?:\.\d+)?)/);
-			if (addSubMatch) {
-				return { type: 'addition or subtraction', inParentheses: true, expression: match };
+			if (depth === 0) {
+				const match = formatted.slice(leftmostParenIndex, endIndex);
+				const innerExpr = match.slice(1, -1);
+				
+				// Check for exponents in the inner expression
+				if (/(-?\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/.test(innerExpr)) {
+					return { type: 'exponents', inParentheses: true, expression: match };
+				}
+				
+				// Check for multiplication or division in the inner expression
+				const multDivMatch = innerExpr.match(/(-?\d+(?:\.\d+)?)\s*[×÷]\s*(-?\d+(?:\.\d+)?)/);
+				if (multDivMatch) {
+					return { type: 'multiplication or division', inParentheses: true, expression: match };
+				}
+				
+				// Check for addition or subtraction in the inner expression
+				const addSubMatch = innerExpr.match(/(-?\d+(?:\.\d+)?)\s*[+\-−]\s*(-?\d+(?:\.\d+)?)/);
+				if (addSubMatch) {
+					return { type: 'addition or subtraction', inParentheses: true, expression: match };
+				}
 			}
 		}
 		
@@ -540,7 +550,6 @@ const OrderOfOperations = () => {
 		}
 		
 		// Check for addition or subtraction in the main expression
-		// Modified to better handle negative numbers and ensure proper spacing
 		const addSubMatch = formatted.match(/(-?\d+(?:\.\d+)?)\s*[+\-−]\s*([+\-−]?\d+(?:\.\d+)?)/);
 		if (addSubMatch) {
 			return { type: 'addition or subtraction', inParentheses: false, expression: formatted };
@@ -572,19 +581,25 @@ const OrderOfOperations = () => {
 			}
 			
 			if (match) {
-				// Always return the full parenthesized expression for highlighting
+				// If this is the last operation, return the full parenthesized expression
+				if (remainingOps === 1) {
+					return {
+						operation: operation.expression,
+						isLastInParentheses: true,
+						fullParentheses: operation.expression
+					};
+				}
 				return {
 					operation: match[0],
-					isLastInParentheses: true,
-					fullParentheses: operation.expression,
-					highlightFullParentheses: true
+					isLastInParentheses: false,
+					fullParentheses: operation.expression
 				};
 			}
 		} else {
 			// Original logic for operations outside parentheses
 			let match = null;
 			if (operation.type === 'exponents') {
-				match = formatted.match(/(-?\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/);
+					match = formatted.match(/(-?\d+(?:\.\d+)?)[⁰¹²³⁴⁵⁶⁷⁸⁹ᐧ]+/);
 			} else if (operation.type === 'multiplication or division') {
 				match = formatted.match(/(-?\d+(?:\.\d+)?)\s*[×÷]\s*(-?\d+(?:\.\d+)?)/);
 			} else if (operation.type === 'addition or subtraction') {
@@ -595,8 +610,7 @@ const OrderOfOperations = () => {
 				return {
 					operation: match[0],
 					isLastInParentheses: false,
-					fullParentheses: null,
-					highlightFullParentheses: false
+					fullParentheses: null
 				};
 			}
 		}
@@ -1187,6 +1201,9 @@ const OrderOfOperations = () => {
 			return { current: null, inParentheses: false };
 		}
 		
+		// Check if the current expression has any parentheses
+		const hasParentheses = displayedExpression.includes('(');
+		
 		// If we're in parentheses and it's the last operation, highlight both P and the current operation
 		if (isLastInParentheses) {
 			if (operation.includes('^') || operation.includes('²')) {
@@ -1202,16 +1219,16 @@ const OrderOfOperations = () => {
 		
 		// Regular operation highlighting
 		if (operation.includes('^') || operation.includes('²')) {
-			return { current: '^', inParentheses: false };
+			return { current: '^', inParentheses: hasParentheses };
 		}
 		if (operation.includes('×') || operation.includes('÷')) {
-			return { current: '×÷', inParentheses: false };
+			return { current: '×÷', inParentheses: hasParentheses };
 		}
 		if (operation.includes('+') || operation.includes('-')) {
-			return { current: '+-', inParentheses: false };
+			return { current: '+-', inParentheses: hasParentheses };
 		}
 		
-		return { current: null, inParentheses: false };
+		return { current: null, inParentheses: hasParentheses };
 	};
 
 	// Add useEffect to track animation states
