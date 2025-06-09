@@ -1806,12 +1806,14 @@ const OrderOfOperations = () => {
 								<Button 
 									onClick={handleSimplify}
 									className="h-[35px] bg-[#008545] hover:bg-[#00783E] text-white text-sm px-3 rounded-md select-none touch-manipulation"
+									disabled={isPemdasAnimating}
 								>
 									Simplify
 								</Button>
 								<Button 
 									onClick={handleRandomExpression}
 									className="h-[35px] bg-[#008545] hover:bg-[#00783E] text-white text-sm px-3 rounded-md select-none touch-manipulation"
+									disabled={isPemdasAnimating}
 								>
 									Random
 								</Button>
