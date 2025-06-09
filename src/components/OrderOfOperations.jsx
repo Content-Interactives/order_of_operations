@@ -161,32 +161,122 @@ const OrderOfOperations = () => {
 	const generateRandomExpression = () => {
 		const expressions = [
 			// Simple expressions
-			() => `${generateRandomNumber(1, 9)} + ${generateRandomNumber(1, 9)} * ${generateRandomNumber(1, 9)}`,
-			() => `${generateRandomNumber(1, 9)} * ${generateRandomNumber(1, 9)} - ${generateRandomNumber(1, 9)}`,
-			() => `${generateRandomNumber(1, 9)} / ${generateRandomNumber(1, 9)} + ${generateRandomNumber(1, 9)}`,
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, 9);
+				return `${num1} + ${num2} * ${num3}`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, num1); // Ensure num3 is smaller than num1
+				return `${num1} * ${num2} - ${num3}`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, 9);
+				return `${num1} / ${num2} + ${num3}`;
+			},
 			
 			// Expressions with parentheses
-			() => `(${generateRandomNumber(1, 9)} + ${generateRandomNumber(1, 9)}) * ${generateRandomNumber(1, 9)}`,
-			() => `${generateRandomNumber(1, 9)} * (${generateRandomNumber(1, 9)} - ${generateRandomNumber(1, 9)})`,
-			() => `(${generateRandomNumber(1, 9)} + ${generateRandomNumber(1, 9)}) / ${generateRandomNumber(1, 9)}`,
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, 9);
+				return `(${num1} + ${num2}) * ${num3}`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, num1); // Ensure num3 is smaller than num1
+				return `${num1} * (${num2} - ${num3})`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, 9);
+				return `(${num1} + ${num2}) / ${num3}`;
+			},
 			
 			// Expressions with exponents
-			() => `${generateRandomNumber(1, 5)}^2 + ${generateRandomNumber(1, 9)}`,
-			() => `${generateRandomNumber(1, 9)} * ${generateRandomNumber(1, 5)}^2`,
-			() => `(${generateRandomNumber(1, 5)}^2 + ${generateRandomNumber(1, 9)}) * ${generateRandomNumber(1, 9)}`,
+			() => {
+				const num1 = generateRandomNumber(1, 5);
+				const num2 = generateRandomNumber(1, 9);
+				return `${num1}^2 + ${num2}`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 5);
+				return `${num1} * ${num2}^2`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 5);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, 9);
+				return `(${num1}^2 + ${num2}) * ${num3}`;
+			},
 			
 			// Complex expressions
-			() => `(${generateRandomNumber(1, 9)} + ${generateRandomNumber(1, 9)}) * (${generateRandomNumber(1, 9)} - ${generateRandomNumber(1, 9)})`,
-			() => `${generateRandomNumber(1, 9)} * ${generateRandomNumber(1, 5)}^2 + ${generateRandomNumber(1, 9)}`,
-			() => `(${generateRandomNumber(1, 9)} + ${generateRandomNumber(1, 9)}) / ${generateRandomNumber(1, 9)} * ${generateRandomNumber(1, 9)}`,
-			() => `${generateRandomNumber(1, 5)}^2 * ${generateRandomNumber(1, 9)} - ${generateRandomNumber(1, 9)}`,
-			() => `(${generateRandomNumber(1, 9)} * ${generateRandomNumber(1, 9)}) + (${generateRandomNumber(1, 9)} / ${generateRandomNumber(1, 9)})`,
-			() => `${generateRandomNumber(1, 9)} * (${generateRandomNumber(1, 9)} + ${generateRandomNumber(1, 9)})^2`,
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, 9);
+				const num4 = generateRandomNumber(1, num3); // Ensure num4 is smaller than num3
+				return `(${num1} + ${num2}) * (${num3} - ${num4})`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 5);
+				const num3 = generateRandomNumber(1, 9);
+				return `${num1} * ${num2}^2 + ${num3}`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, 9);
+				const num4 = generateRandomNumber(1, 9);
+				return `(${num1} + ${num2}) / ${num3} * ${num4}`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 5);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, 9);
+				return `${num1}^2 * ${num2} - ${num3}`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, 9);
+				const num4 = generateRandomNumber(1, 9);
+				return `(${num1} * ${num2}) + (${num3} / ${num4})`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, 9);
+				return `${num1} * (${num2} + ${num3})^2`;
+			},
 			
 			// New expressions with exponents on parentheses
-			() => `(${generateRandomNumber(1, 9)} + ${generateRandomNumber(1, 9)})^2`,
-			() => `(${generateRandomNumber(1, 9)} * ${generateRandomNumber(1, 9)})^2 + ${generateRandomNumber(1, 9)}`,
-			() => `${generateRandomNumber(1, 9)} + (${generateRandomNumber(1, 9)} - ${generateRandomNumber(1, 9)})^2`
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				return `(${num1} + ${num2})^2`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, 9);
+				return `(${num1} * ${num2})^2 + ${num3}`;
+			},
+			() => {
+				const num1 = generateRandomNumber(1, 9);
+				const num2 = generateRandomNumber(1, 9);
+				const num3 = generateRandomNumber(1, num2); // Ensure num3 is smaller than num2
+				return `${num1} + (${num2} - ${num3})^2`;
+			}
 		];
 
 		// Randomly select one of the expression generators
@@ -1663,9 +1753,10 @@ const OrderOfOperations = () => {
 						<input
 							type="text"
 							value={expression}
-							onChange={handleExpressionChange}
-							placeholder="Enter an expression (e.g., 2 + 3 * 4)"
-							className="flex-1 h-[35px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#008545] select-none"
+							// onChange={handleExpressionChange}
+							placeholder=""
+							className="flex-1 h-[35px] px-3 border border-gray-300 rounded-md /* focus:outline-none focus:ring-2 focus:ring-[#008545] */ select-none"
+							disabled
 						/>
 						<div className={`glow-button ${isGlowActive ? 'simple-glow' : ''}`}>
 							<div className="flex gap-2">
