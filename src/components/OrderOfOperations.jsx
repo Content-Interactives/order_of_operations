@@ -47,7 +47,6 @@ const OrderOfOperations = () => {
 
 	// Add handleContinue function definition
 	const handleContinue = () => {
-		
 		// Start animations
 		setIsContinueButtonShrinking(true);
 		setIsHighlightedOperationShrinking(true);
@@ -124,7 +123,7 @@ const OrderOfOperations = () => {
 							// Wait for expression to appear before showing highlight
 							setTimeout(() => {
 								// First set the operation without showing highlight
-								setHighlightedOperation(nextOperation.operation);
+								setHighlightedOperation(nextOperation.highlightFullParentheses ? nextOperation.fullParentheses : nextOperation.operation);
 								setIsLastInParentheses(nextOperation.isLastInParentheses);
 								
 								// Small delay to ensure operation is set
@@ -399,7 +398,7 @@ const OrderOfOperations = () => {
 		let formatted = expr.replace(/(?<!\d)\.(\d+)/g, '0.$1')  // .2 -> 0.2
 			.replace(/(\d+)\.(?!\d)/g, '$1');  // 2. -> 2
 		
-		// Recursively remove unnecessary parentheses until no more can be removed
+		// Only remove parentheses around single numbers
 		let previousFormatted;
 		do {
 			previousFormatted = formatted;
@@ -407,9 +406,6 @@ const OrderOfOperations = () => {
 				// Remove parentheses around single numbers
 				.replace(/\(\s*(\d+(?:\.\d+)?)\s*\)/g, '$1')  // Remove (2) -> 2
 				.replace(/\(\s*-\s*(\d+(?:\.\d+)?)\s*\)/g, '-$1')  // Remove (-2) -> -2
-				// Remove parentheses around expressions that don't need them
-				.replace(/\(\s*([^()]+?)\s*\)\s*([×÷+\-])/g, '$1 $2')  // Remove (2+3) + 4 -> 2+3 + 4
-				.replace(/([×÷+\-])\s*\(\s*([^()]+?)\s*\)/g, '$1 $2')  // Remove 2 + (3+4) -> 2 + 3+4
 				// Remove nested parentheses around the same expression
 				.replace(/\(\s*\(\s*([^()]+?)\s*\)\s*\)/g, '($1)');  // Remove ((2+3)) -> (2+3)
 		} while (formatted !== previousFormatted);
@@ -576,18 +572,12 @@ const OrderOfOperations = () => {
 			}
 			
 			if (match) {
-				// If this is the last operation, return the full parenthesized expression
-				if (remainingOps === 1) {
-					return {
-						operation: operation.expression,
-						isLastInParentheses: true,
-						fullParentheses: operation.expression
-					};
-				}
+				// Always return the full parenthesized expression for highlighting
 				return {
 					operation: match[0],
-					isLastInParentheses: false,
-					fullParentheses: operation.expression
+					isLastInParentheses: true,
+					fullParentheses: operation.expression,
+					highlightFullParentheses: true
 				};
 			}
 		} else {
@@ -605,7 +595,8 @@ const OrderOfOperations = () => {
 				return {
 					operation: match[0],
 					isLastInParentheses: false,
-					fullParentheses: null
+					fullParentheses: null,
+					highlightFullParentheses: false
 				};
 			}
 		}
@@ -854,7 +845,6 @@ const OrderOfOperations = () => {
 
 	// Add function to get the simplified expression
 	const getSimplifiedExpression = (expr, operation) => {
-		
 		const result = calculateOperationResult(operation);
 		
 		if (result === null) {
