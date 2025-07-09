@@ -17,7 +17,7 @@ This interactive is currently featured in the following locations:
 
 - 📘 **CK-12 Intent Response**  
   - 👉 PRODUCTION: PENDING  
-  - 👉 MASTER: PENDING
+  - 👉 MASTER: [https://test.ck12.co/6kkdIK](https://test.ck12.co/6kkdIK)
 
 ---
 
