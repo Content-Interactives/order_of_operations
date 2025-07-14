@@ -19,7 +19,7 @@ This interactive is currently featured in the following locations:
   - 👉 PRODUCTION: PENDING  
   - 👉 MASTER: [https://test.ck12.co/6kkdIK](https://test.ck12.co/6kkdIK)
 - 📘 **CK-12 Flexbooks**
-  - 👉 1.8 Order Of Operations MSM8: [Book Link](https://flexbooks.ck12.org/cbook/ck-12-middle-school-math-concepts-grade-8/section/1.8/related/lesson/order-of-operations-msm6-ccss/?referrer=search)
+  - 👉 1.8 Order Of Operations MSM8: [Book Link](https://www.ck12.org/na/order-of-operations-416-26087013/lesson/user:563a779f8eda/Order-of-Operations/?t=1752519851330)
 
 ---
 
