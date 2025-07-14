@@ -18,6 +18,8 @@ This interactive is currently featured in the following locations:
 - 📘 **CK-12 Intent Response**  
   - 👉 PRODUCTION: PENDING  
   - 👉 MASTER: [https://test.ck12.co/6kkdIK](https://test.ck12.co/6kkdIK)
+- 📘 **CK-12 Flexbooks**
+  - 👉 1.8 Order Of Operations MSM8: [Book Link](https://flexbooks.ck12.org/cbook/ck-12-middle-school-math-concepts-grade-8/section/1.8/related/lesson/order-of-operations-msm6-ccss/?referrer=search)
 
 ---
 
